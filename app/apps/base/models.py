@@ -131,3 +131,47 @@ class ImmutableBusinessEntity(ImmutableBase, BusinessEntity):
 
 class ImmutableBusinessOwnedEntity(ImmutableBase, BusinessOwnedEntity):
     __abstract__ = True
+
+#### End of BaseModel ####
+
+
+#### Start of Invoice ####
+class Invoice(BaseEntity):
+    """a mutable table based on class BaseEntity."""
+    __tablename__ = "invoice"
+    business_id: Mapped[uuid.UUID] = mapped_column(index=True)
+
+    merchant: Mapped[str] = mapped_column(sa.JSON(), nullable=False)
+    customer: Mapped[str] = mapped_column(sa.JSON(), nullable=False)
+
+    proposal_id: Mapped[str] = mapped_column(index=True)
+    transaction_id: Mapped[str] = mapped_column(index=True)
+
+    items: Mapped[str] = mapped_column(sa.JSON(), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    enrollment_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    amount: Mapped[float] = mapped_column(nullable=False)
+    currency: Mapped[str] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(nullable=False)
+    due_date: Mapped[datetime] = mapped_column(nullable=False)
+    issued_date: Mapped[datetime] = mapped_column(nullable=False)
+
+
+#### End of Invoice ####
+
+#### Start of Revenue Sharing Rules ####
+class RevenueSharingRule(ImmutableBase):
+    """A mutable table based on class ImmutableBase.
+    Each Item in basket model has a Revenue Sharing Rule.
+    this table has an entity "is_deleted" which is set to False by default. this is the only entity that can be updated in this table. using as soft delete.
+    """
+
+    __tablename__ = "revenue_sharing_rule"
+    uid: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    business_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    name: Mapped[str] = mapped_column()
+    description: Mapped[str] = mapped_column(nullable=True)
+    is_default: Mapped[bool] = mapped_column(nullable=False)
+    is_active: Mapped[bool] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+    shares: Mapped[list[dict]] = mapped_column(sa.JSON(), nullable=False)
