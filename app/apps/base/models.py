@@ -149,7 +149,7 @@ class Invoice(BaseEntity):
 
     items: Mapped[str] = mapped_column(sa.JSON(), nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(index=True)
-    enrollment_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    # enrollment_id: Mapped[uuid.UUID] = mapped_column(index=True)
     amount: Mapped[float] = mapped_column(nullable=False)
     currency: Mapped[str] = mapped_column(nullable=False)
     status: Mapped[str] = mapped_column(nullable=False)
