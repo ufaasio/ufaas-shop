@@ -14,7 +14,7 @@ Based on models developed in app>apps>base>models.py
 write CRUP Endpoints with maturity level 2
 """
 
-##### Invoice Endpoints #####
+#### Invoice Endpoints ####
 
 ##### list of invoices #####
 @router.get("/invoice")
@@ -286,6 +286,214 @@ async def delete_invoice(
         db.commit()
         db.refresh(invoice)
         return invoice
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error: {str(e)}",
+        )
+
+#### End of Invoice ####
+
+#### revenue sharing rules Endpoints ####
+
+##### return list of revenue sharing rules #####
+
+@router.get("/revenue_sharing_rule")
+async def get_revenue_sharing_rules(
+    business_id: uuid.UUID,
+    name: Optional[str] = None,
+    is_default: Optional[bool] = None,
+    is_active: Optional[bool] = None,
+    db: Session = Depends(get_db),
+):
+    """return list of revenue sharing rules"""
+    try:
+        query = db.query(models.RevenueSharingRule).filter_by(
+            business_id=business_id
+        )
+        if name:
+            query = query.filter_by(name=name)
+        if is_default is not None:
+            query = query.filter_by(is_default=is_default)
+        if is_active is not None:
+            query = query.filter_by(is_active=is_active)
+        return query.all()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+
+
+##### return single revenue sharing rule #####
+
+@router.get("/revenue_sharing_rule/{uid}", response_model=models.RevenueSharingRule)
+async def get_revenue_sharing_rule(
+    uid: uuid.UUID,
+    business_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """ return single revenue sharing rule """
+    try:
+        rule = db.query(models.RevenueSharingRule).filter_by(uid=uid).first()
+        if not rule:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Revenue Sharing Rule not found",
+            )
+
+        if rule.business_id != business_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Revenue Sharing Rule does not belong to the business",
+            )
+
+        return rule
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error: {str(e)}",
+        )
+
+##### Create a Revenue Sharing Rule #####
+@router.post("/revenue_sharing_rule", response_model=models.RevenueSharingRule)
+async def create_revenue_sharing_rule(
+    business_id: uuid.UUID,
+    name: str,
+    description: Optional[str] = None,
+    is_default: bool,
+    is_active: bool,
+    shares: list[dict],
+    db: Session = Depends(get_db),
+):
+    """
+    Create a Revenue Sharing Rule.
+
+    Required parameters:
+        business_id
+        name
+        description
+        is_default
+        is_active
+        shares
+    """
+    try:
+        rule = models.RevenueSharingRule(
+            business_id=business_id,
+            name=name,
+            description=description,
+            is_default=is_default,
+            is_active=is_active,
+            shares=shares,
+        )
+        db.add(rule)
+        db.commit()
+        db.refresh(rule)
+        return rule
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error: {str(e)}",
+        )
+
+### update a revenue sharing rule #####
+@router.put("/revenue_sharing_rule/{uid}", response_model=models.RevenueSharingRule)
+async def update_revenue_sharing_rule(
+    uid: uuid.UUID,
+    business_id: uuid.UUID,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    is_default: Optional[bool] = None,
+    is_active: Optional[bool] = None,
+    shares: Optional[list[dict]] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Update a Revenue Sharing Rule.
+
+    Required parameters:
+        uid
+        business_id
+    Optional parameters:
+        name
+        description
+        is_default
+        is_active
+        shares
+    """
+    try:
+        rule = db.query(models.RevenueSharingRule).filter_by(uid=uid).first()
+        if not rule:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Revenue Sharing Rule not found",
+            )
+
+        if rule.business_id != business_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Revenue Sharing Rule does not belong to the business",
+            )
+
+        if name:
+            rule.name = name
+        if description:
+            rule.description = description
+        if is_default is not None:
+            rule.is_default = is_default
+        if is_active is not None:
+            rule.is_active = is_active
+        if shares:
+            rule.shares = shares
+        db.commit()
+        db.refresh(rule)
+        return rule
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error: {str(e)}",
+        )
+
+##### delete a revenue sharing rule #####
+
+
+
+@router.delete("/revenue_sharing_rule/{uid}", response_model=models.RevenueSharingRule)
+async def delete_revenue_sharing_rule(
+    uid: uuid.UUID,
+    business_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a Revenue Sharing Rule.
+
+    Required parameters:
+        business_id
+        uid
+    """
+    try:
+        # get revenue sharing rule by uid
+        rule = db.query(models.RevenueSharingRule).filter_by(uid=uid).first()
+        if not rule:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Revenue Sharing Rule not found",
+            )
+
+        # update invoice
+        if rule.business_id != business_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Revenue Sharing Rule does not belong to the business",
+            )
+
+        rule.is_active = False
+        db.commit()
+        db.refresh(rule)
+        return rule
 
     except Exception as e:
         raise HTTPException(
