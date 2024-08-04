@@ -7,6 +7,7 @@ from sqlalchemy.ext.declarative import as_declarative, declared_attr
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column
 from sqlalchemy.sql import func
 
+import app.apps.base.services as services
 # Base = declarative_base()
 
 
@@ -136,10 +137,9 @@ class ImmutableBusinessOwnedEntity(ImmutableBase, BusinessOwnedEntity):
 
 
 #### Start of Invoice ####
-class Invoice(BaseEntity):
+class Invoice(BusinessOwnedEntity):
     """a mutable table based on class BaseEntity."""
     __tablename__ = "invoice"
-    business_id: Mapped[uuid.UUID] = mapped_column(index=True)
 
     merchant: Mapped[str] = mapped_column(sa.JSON(), nullable=False)
     customer: Mapped[str] = mapped_column(sa.JSON(), nullable=False)
@@ -148,7 +148,6 @@ class Invoice(BaseEntity):
     transaction_id: Mapped[str] = mapped_column(index=True)
 
     items: Mapped[str] = mapped_column(sa.JSON(), nullable=False)
-    user_id: Mapped[uuid.UUID] = mapped_column(index=True)
     # enrollment_id: Mapped[uuid.UUID] = mapped_column(index=True)
     amount: Mapped[float] = mapped_column(nullable=False)
     currency: Mapped[str] = mapped_column(nullable=False)
@@ -160,18 +159,23 @@ class Invoice(BaseEntity):
 #### End of Invoice ####
 
 #### Start of Revenue Sharing Rules ####
-class RevenueSharingRule(ImmutableBase):
-    """A mutable table based on class ImmutableBase.
-    Each Item in basket model has a Revenue Sharing Rule.
-    this table has an entity "is_deleted" which is set to False by default. this is the only entity that can be updated in this table. using as soft delete.
+class BaseEntity:
+class RevenueSharingRule(BusinessEntity):
+    """A mutable table but 2 entities can be edited after first time addition.
+    The other entities couldn't be edited any time. Each Item in basket model has a Revenue Sharing Rule.
+    This table has an entity "is_active" which is set to False by default. is_active and is_default are the only entities that can be updated in this table.
     """
 
     __tablename__ = "revenue_sharing_rule"
-    uid: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    business_id: Mapped[uuid.UUID] = mapped_column(index=True)
-    name: Mapped[str] = mapped_column()
+    
+    name: Mapped[str] = mapped_column(nullable=False)
     description: Mapped[str] = mapped_column(nullable=True)
-    is_default: Mapped[bool] = mapped_column(nullable=False)
-    is_active: Mapped[bool] = mapped_column(nullable=False)
-    created_at: Mapped[datetime] = mapped_column(nullable=False)
+    is_default: Mapped[bool] = mapped_column(nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(nullable=False, default=True)
     shares: Mapped[list[dict]] = mapped_column(sa.JSON(), nullable=False)
+
+
+# Listen for the before_flush event and the after_insert event
+event.listen(RevenueSharingRule, 'after_insert', services.prevent_changes_after_insert)
+event.listen(Base, 'before_flush', services.validate_no_changes_except_is_default_is_active)
+#### End of Revenue Sharing Rules ####
