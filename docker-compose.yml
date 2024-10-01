@@ -1,30 +1,14 @@
 services:
-  db:
-    image: timescale/timescaledb:latest-pg16
-    # image: postgres
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    volumes:
-      - ./db.data:/var/lib/postgresql/data
-    networks:
-      - data
-
   app:
     build: app
     restart: unless-stopped
+    command: python app.py
     env_file:
       - .env
-    environment:
-      # - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_DB}
-      # - DATABASE_URL_SYNC=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_DB}
-      - DATABASE_URL=sqlite+aiosqlite:///./logs/app.db
     volumes:
       - ./app:/app
     networks:
-      - data
+      - mongo-net
       - traefik-net
     labels:
       - "traefik.enable=true"
@@ -41,4 +25,5 @@ services:
 networks:
   traefik-net:
     external: true
-  data:
+  mongo-net:
+    external: true

@@ -4,12 +4,14 @@ from contextlib import asynccontextmanager
 
 import fastapi
 import pydantic
-from core import exceptions
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from json_advanced import dumps
-from server import config, db
 from usso.exceptions import USSOException
+
+from core import exceptions
+
+from . import config, db, middlewares
 
 
 @asynccontextmanager
@@ -24,7 +26,7 @@ async def lifespan(app: fastapi.FastAPI):  # type: ignore
 
 
 app = fastapi.FastAPI(
-    title="FastAPI Launchpad",
+    title=config.Settings.project_name.replace("-", " ").title(),
     # description=DESCRIPTION,
     version="0.1.0",
     contact={
@@ -36,6 +38,8 @@ app = fastapi.FastAPI(
         "name": "MIT License",
         "url": "https://github.com/mahdikiani/FastAPILaunchpad/blob/main/LICENSE",
     },
+    docs_url=f"{config.Settings.base_path}/docs",
+    openapi_url=f"{config.Settings.base_path}/openapi.json",
     lifespan=lifespan,
 )
 
@@ -100,11 +104,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# from apps.note.routes import router as note_router
-
-# app.include_router(note_router, prefix="/note", tags=["note"])
+app.add_middleware(middlewares.OriginalHostMiddleware)
 
 
-@app.get("/")
-async def index():
-    return {"message": "Hello World!"}
+from apps.basket.routes import router as basket_router
+from apps.business.routes import router as business_router
+
+app.include_router(
+    business_router, prefix=f"{config.Settings.base_path}", include_in_schema=False
+)
+app.include_router(basket_router, prefix=f"{config.Settings.base_path}")
+
+from fastapi.staticfiles import StaticFiles
+
+app.mount(
+    "/coverage", StaticFiles(directory=config.Settings.coverage_dir), name="coverage"
+)
+
+
+@app.get(f"{config.Settings.base_path}/health")
+async def health(request: fastapi.Request):
+    original_host = request.headers.get("x-original-host", "!not found!")
+    forwarded_host = request.headers.get("X-Forwarded-Host", "forwarded_host")
+    forwarded_proto = request.headers.get("X-Forwarded-Proto", "forwarded_proto")
+    forwarded_for = request.headers.get("X-Forwarded-For", "forwarded_for")
+
+    return {
+        "status": "up",
+        "host": request.url.hostname,
+        "host2": request.base_url.hostname,
+        "original_host": original_host,
+        "forwarded_host": forwarded_host,
+        "forwarded_proto": forwarded_proto,
+        "forwarded_for": forwarded_for,
+    }
+
+
+@app.get("/openapi.json", include_in_schema=False)
+async def openapi():
+    openapi = app.openapi()
+    paths = {}
+    for path in openapi["paths"]:
+        paths[f"{config.Settings.base_path}{path}"] = openapi["paths"][path]
+    openapi["paths"] = paths
+    return openapi

@@ -10,25 +10,27 @@ import dotenv
 from singleton import Singleton
 
 dotenv.load_dotenv()
-base_dir = Path(__file__).resolve().parent.parent
 
 
 @dataclasses.dataclass
 class Settings(metaclass=Singleton):
     """Server config settings."""
 
-    base_dir: Path = base_dir
     root_url: str = os.getenv("DOMAIN", default="http://localhost:8000")
-    project_name: str = os.getenv("PROJECT_NAME", default="UFaaS")
+    mongo_uri: str = os.getenv("MONGO_URI", default="mongodb://mongo:27017/")
+    project_name: str = os.getenv("PROJECT_NAME", default="fastapi")
+    base_dir: Path = Path(__file__).resolve().parent.parent
+    base_path: str = "/api/v1/apps/basket"
+    page_max_limit: int = 100
+    coverage_dir: Path = base_dir / "htmlcov"
+    currency: str = "IRR"
 
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", default="sqlite+aiosqlite:///logs/app.db"
-    )
-    # DATABASE_URL: str = os.getenv(
-    #     "DATABASE_URL", default="sqlite:///:memory:"
-    # )
-    DATABASE_URL_SYNC: str = os.getenv(
-        "DATABASE_URL_SYNC", default="sqlite:///./test.db"
+    app_id: str = os.getenv("APP_ID")
+    app_secret: str = os.getenv("APP_SECRET")
+
+    JWT_CONFIG: str = os.getenv(
+        "USSO_JWT_CONFIG",
+        default='{"jwk_url": "https://usso.io/website/jwks.json","type": "RS256","header": {"type": "Cookie", "name": "usso_access_token"} }',
     )
 
     testing: bool = os.getenv("TESTING", default=False)
@@ -38,13 +40,13 @@ class Settings(metaclass=Singleton):
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
-                "level": "WARNING",
+                "level": "INFO",
                 "formatter": "standard",
             },
             "file": {
                 "class": "logging.FileHandler",
                 "level": "INFO",
-                "filename": base_dir / "logs" / f"{project_name}.log",
+                "filename": base_dir / "logs" / "info.log",
                 "formatter": "standard",
             },
         },
@@ -67,8 +69,9 @@ class Settings(metaclass=Singleton):
         },
     }
 
-    def config_logger(self):
-        if not (base_dir / "logs").exists():
-            (base_dir / "logs").mkdir()
+    @classmethod
+    def config_logger(cls):
+        if not (cls.base_dir / "logs").exists():
+            (cls.base_dir / "logs").mkdir()
 
-        logging.config.dictConfig(self.log_config)
+        logging.config.dictConfig(cls.log_config)

@@ -8,12 +8,10 @@ python-dotenv
 debugpy
 ipython
 
-sqlalchemy
-alembic
-asyncpg
-psycopg2-binary
-databases
-
-aiosqlite
-
+aiohttp
+aiofiles
+aiocache
 usso
+
+beanie
+fastapi-mongo-base
