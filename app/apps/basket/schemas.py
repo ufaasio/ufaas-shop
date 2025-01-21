@@ -14,31 +14,13 @@ from ufaas.apps.saas.schemas import Bundle
 
 
 class DiscountSchema(BaseModel):
-    percentage: Decimal = Decimal(0)
-    max_amount: Decimal | None = None
-    min_amount: Decimal | None = None
+    code: str
+    user_id: uuid.UUID
+    discount: Decimal = Field(default=Decimal(0), gt=0, description="Discount amount")
 
-    @field_validator("percentage", mode="before")
-    def validate_percentage(cls, value):
+    @field_validator("discount", mode="before")
+    def validate_discount(cls, value):
         return decimal_amount(value)
-
-    @field_validator("max_amount", mode="before")
-    def validate_max_amount(cls, value):
-        return decimal_amount(value)
-
-    @field_validator("min_amount", mode="before")
-    def validate_min_amount(cls, value):
-        return decimal_amount(value)
-
-    def apply_discount(self, total: Decimal):
-        if self.min_amount and total < self.min_amount:
-            return total
-
-        discount = total * self.percentage
-        if self.max_amount and discount > self.max_amount:
-            return self.max_amount
-
-        return discount
 
 
 class ItemType(str, Enum):
@@ -181,11 +163,12 @@ class BasketDataSchema(BusinessOwnedEntitySchema):
     callback_url: str | None = Field(description="Callback URL for the basket")
 
     currency: str = Settings.currency
-    discount: DiscountSchema | None = None
 
     checkout_at: datetime | None = None
     payment_detail_url: str | None = None
     invoice_id: uuid.UUID | None = None
+
+    discount: DiscountSchema | None = None
 
     @property
     def is_modifiable(self):
@@ -194,7 +177,8 @@ class BasketDataSchema(BusinessOwnedEntitySchema):
 
 class BasketDetailSchema(BasketDataSchema):
     items: list[BasketItemSchema] = []
-    total_price: Decimal = Field(description="Total amount of the basket")
+    subtotal: Decimal = Field(description="Total amount of the basket")
+    amount: Decimal = Field(description="Total amount of the basket after discount")
 
     @field_validator("items", mode="before")
     def validate_items(cls, value):
@@ -202,8 +186,12 @@ class BasketDetailSchema(BasketDataSchema):
             return [item for item in value.values()]
         return value
 
-    @field_validator("total_price", mode="before")
-    def validate_total(cls, value):
+    @field_validator("subtotal", mode="before")
+    def validate_subtotal(cls, value):
+        return decimal_amount(value)
+
+    @field_validator("amount", mode="before")
+    def validate_amount(cls, value):
         return decimal_amount(value)
 
 
@@ -212,13 +200,18 @@ class BasketCreateSchema(BaseModel):
     meta_data: dict[str, Any] | None = None
 
 
+class VoucherSchema(BaseModel):
+    code: str
+
+
 class BasketUpdateSchema(BaseModel):
     status: Literal["active", "inactive", "paid", "reserve", "cancel"] | None = None
     items: list[BasketItemSchema] | None = None
-    discount: DiscountSchema | None = None
+
     payment_detail_url: str | None = None
     meta_data: dict[str, Any] | None = None
 
     checkout_at: datetime | None = None
-    payment_detail_url: str | None = None
     invoice_id: uuid.UUID | None = None
+
+    voucher: VoucherSchema | None = None

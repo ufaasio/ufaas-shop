@@ -12,7 +12,7 @@ from ufaas.schemas import WalletSchema
 from ufaas_fastapi_business.models import Business
 
 from .models import Basket
-from .schemas import BasketStatusEnum, ItemType
+from .schemas import BasketStatusEnum, DiscountSchema, ItemType
 
 
 async def reserve_basket(basket: Basket):
@@ -80,7 +80,7 @@ async def create_payment_detail(basket: Basket, business: Business):
                 "user_id": basket.user_id,
                 "wallet_id": wallet.uid,
                 "basket_id": basket.uid,
-                "amount": basket.total_price,
+                "amount": basket.subtotal,
                 "description": basket.description,
                 "currency": basket.currency,
                 "callback_url": f"{business.config.core_url}api/v1/apps/basket/baskets/{basket.uid}/validate",
@@ -196,3 +196,33 @@ async def validate_basket(basket: Basket, business: Business):
     await basket.save()
 
     return payment
+
+
+async def apply_discount(basket: Basket, discount_code: str) -> Basket:
+    from apps.voucher.models import Voucher
+    from apps.voucher.schemas import VoucherStatus
+
+    voucher = await Voucher.get_by_code(basket.business_name, discount_code)
+    if not voucher:
+        return basket
+
+    if voucher.status != VoucherStatus.ACTIVE:
+        return basket
+
+    if basket.discount:
+        prev_discount = await Voucher.get_by_code(
+            basket.business_name, basket.discount.code
+        )
+        prev_discount.redeemed -= 1
+        await prev_discount.save()
+
+    discount_value = voucher.calculate_discount(basket.amount)
+    basket.discount = DiscountSchema(
+        code=voucher.code, discount=discount_value, user_id=basket.user_id
+    )
+    await basket.save()
+
+    voucher.redeemed += 1
+    await voucher.save()
+
+    return basket

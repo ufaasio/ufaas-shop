@@ -17,7 +17,7 @@ from .schemas import (
     BasketStatusEnum,
     BasketUpdateSchema,
 )
-from .services import checkout_basket, validate_basket
+from .services import apply_discount, checkout_basket, validate_basket
 
 
 class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
@@ -105,11 +105,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
     async def retrieve_item(self, request: Request, uid: uuid.UUID):
         basket: Basket = await super().retrieve_item(request, uid)
 
-        return BasketDetailSchema(
-            **basket.model_dump(exclude={"items"}),
-            items=list(basket.items.values()),
-            total_price=basket.total_price,
-        )
+        return basket.detail
 
     async def list_items(
         self,
@@ -127,14 +123,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
             status=status,
         )
 
-        items_in_schema = [
-            self.list_item_schema(
-                **item.model_dump(exclude={"items"}),
-                total_price=item.total_price,
-                items=list(item.items.values()),
-            )
-            for item in items
-        ]
+        items_in_schema = [basket.detail for basket in items]
 
         return PaginatedResponse(
             items=items_in_schema, offset=offset, limit=limit, total=total
@@ -142,11 +131,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
 
     async def create_item(self, request: Request, data: BasketCreateSchema):
         basket = await super().create_item(request, data.model_dump())
-        return BasketDetailSchema(
-            **basket.model_dump(exclude={"items"}),
-            items=list(basket.items.values()),
-            total_price=basket.total_price,
-        )
+        return basket.detail
 
     async def update_item(
         self, request: Request, uid: uuid.UUID, data: BasketUpdateSchema
@@ -154,19 +139,14 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         basket = await super().update_item(
             request, uid, data.model_dump(exclude_none=True)
         )
-        return BasketDetailSchema(
-            **basket.model_dump(exclude={"items"}),
-            items=list(basket.items.values()),
-            total_price=basket.total_price,
-        )
+        if data.voucher:
+            basket = await apply_discount(basket, data.voucher.code)
+
+        return basket.detail
 
     async def delete_item(self, request: Request, uid: uuid.UUID):
         basket = await super().delete_item(request, uid)
-        return BasketDetailSchema(
-            **basket.model_dump(exclude={"items"}),
-            items=list(basket.items.values()),
-            total_price=basket.total_price,
-        )
+        return basket.detail
 
     async def add_basket_item(
         self,
@@ -188,11 +168,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         if not basket.is_modifiable:
             raise BaseHTTPException(400, "Basket is not active")
         await basket.add_basket_item(await data.get_basket_item())
-        return BasketDetailSchema(
-            **basket.model_dump(exclude={"items"}),
-            items=list(basket.items.values()),
-            total_price=basket.total_price,
-        )
+        return basket.detail
 
     async def update_basket_item(
         self,
@@ -208,11 +184,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         if not basket.is_modifiable:
             raise BaseHTTPException(400, "Basket is not active")
         await basket.update_basket_item(item_uid, data.quantity_change)
-        return BasketDetailSchema(
-            **basket.model_dump(exclude={"items"}),
-            items=list(basket.items.values()),
-            total_price=basket.total_price,
-        )
+        return basket.detail
 
     async def delete_basket_item(
         self, request: Request, uid: uuid.UUID, item_uid: uuid.UUID
@@ -224,11 +196,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         if not basket.is_modifiable:
             raise BaseHTTPException(400, "Basket is not active")
         await basket.delete_basket_item(item_uid)
-        return BasketDetailSchema(
-            **basket.model_dump(exclude={"items"}),
-            items=list(basket.items.values()),
-            total_price=basket.total_price,
-        )
+        return basket.detail
 
     async def checkout(
         self,

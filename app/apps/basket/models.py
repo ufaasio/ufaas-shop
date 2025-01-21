@@ -4,7 +4,7 @@ from typing import Literal
 
 from fastapi_mongo_base.models import BusinessOwnedEntity
 
-from .schemas import BasketDataSchema, BasketItemSchema
+from .schemas import BasketDataSchema, BasketDetailSchema, BasketItemSchema
 
 
 class Basket(BasketDataSchema, BusinessOwnedEntity):
@@ -14,20 +14,24 @@ class Basket(BasketDataSchema, BusinessOwnedEntity):
         indexes = BusinessOwnedEntity.Settings.indexes
 
     @property
-    def total_price(self):
+    def subtotal(self):
         total = sum(
             [
                 item.price * item.exchange_fee(self.currency)
                 for item in self.items.values()
             ]
         )
-        if self.discount:
-            total -= self.discount.apply_discount(total)
         return total
 
     @property
+    def amount(self):
+        if self.discount:
+            return self.subtotal - self.discount.discount
+        return self.subtotal
+
+    @property
     def description(self):
-        return f"basket id = {self.uid} - total price = {self.total_price}"
+        return f"basket id = {self.uid} - total price = {self.subtotal}"
 
     @classmethod
     def get_query(
@@ -78,3 +82,12 @@ class Basket(BasketDataSchema, BusinessOwnedEntity):
     async def delete_basket_item(self, item_id: uuid.UUID):
         self.items.pop(item_id, None)
         await self.save()
+
+    @property
+    def detail(self) -> BasketDetailSchema:
+        return BasketDetailSchema(
+            **self.model_dump(exclude={"items"}),
+            items=list(self.items.values()),
+            amount=self.amount,
+            subtotal=self.subtotal,
+        )
