@@ -9,13 +9,7 @@ from .schemas import VoucherCreateSchema, VoucherSchema, VoucherUpdateSchema
 
 class VoucherRouter(AbstractAuthRouter[Voucher, VoucherSchema]):
     def __init__(self):
-        super().__init__(model=Voucher, schema=VoucherSchema, user_dependency=None)
-
-    def config_schemas(self, schema, **kwargs):
-        super().config_schemas(schema)
-
-    def config_routes(self, **kwargs):
-        super().config_routes(delete_route=False, **kwargs)
+        super().__init__(model=Voucher, schema=VoucherSchema, auth_policy="business")
 
     async def create_item(self, request: Request, data: VoucherCreateSchema):
         return await super().create_item(request, data.model_dump())

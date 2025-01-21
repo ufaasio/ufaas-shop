@@ -12,7 +12,7 @@ class Voucher(VoucherSchema, BusinessOwnedEntity):
 
     @classmethod
     async def get_by_code(cls, business_name: str, code: str) -> "Voucher":
-        query = cls.get_query(
+        base_query = cls.get_queryset(
             business_name=business_name, code=code, status=VoucherStatus.ACTIVE
         )
-        return await query.first()
+        return await cls.find_one(*base_query)
