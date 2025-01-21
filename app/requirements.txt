@@ -1,6 +1,7 @@
 uvicorn
 fastapi
-pydantic
+pydantic[email]
+httpx
 
 singleton_package
 json-advanced
@@ -8,12 +9,13 @@ python-dotenv
 debugpy
 ipython
 
-sqlalchemy
-alembic
-asyncpg
-psycopg2-binary
-databases
+aiofiles
+aiocache
 
-aiosqlite
+beanie
+fastapi-mongo-base
+ufaas-fastapi-business
 
-usso
+usso[fastapi]
+ufaas
+ufiles
