@@ -202,7 +202,9 @@ async def apply_discount(basket: Basket, discount_code: str) -> Basket:
     from apps.voucher.models import Voucher
     from apps.voucher.schemas import VoucherStatus
 
-    voucher = await Voucher.get_by_code(basket.business_name, discount_code)
+    # TODO check if voucher is limited products
+
+    voucher = await Voucher.get_by_code(basket.business_name, discount_code, basket.user_id)
     if not voucher:
         return basket
 

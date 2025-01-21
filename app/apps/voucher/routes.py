@@ -9,7 +9,7 @@ from .schemas import VoucherCreateSchema, VoucherSchema, VoucherUpdateSchema
 
 class VoucherRouter(AbstractAuthRouter[Voucher, VoucherSchema]):
     def __init__(self):
-        super().__init__(model=Voucher, schema=VoucherSchema, auth_policy="business")
+        super().__init__(model=Voucher, schema=VoucherSchema, auth_policy="user_read")
 
     async def create_item(self, request: Request, data: VoucherCreateSchema):
         return await super().create_item(request, data.model_dump())

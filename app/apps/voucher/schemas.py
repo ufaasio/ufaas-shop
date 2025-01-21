@@ -41,6 +41,7 @@ class VoucherCreateSchema(BaseModel):
         default=None, ge=1, description="Maximum number of uses"
     )
     user_id: uuid.UUID | None = None
+    limited_products: list[uuid.UUID] | None = None
     metadata: dict | None = None
 
     @field_validator("rate", mode="before")
@@ -53,7 +54,7 @@ class VoucherCreateSchema(BaseModel):
 
     def calculate_discount(self, amount: Decimal) -> Decimal:
         discount_value = amount * self.rate / 100
-        discount_value = min(discount_value, self.cap)
+        discount_value = discount_value if self.cap is None else min(discount_value, self.cap)
         return discount_value
 
 
