@@ -1,5 +1,6 @@
 import uuid
 from decimal import Decimal
+from typing import Literal
 
 from fastapi_mongo_base.models import BusinessOwnedEntity
 
@@ -9,8 +10,11 @@ from .schemas import BasketDataSchema, BasketItemSchema
 class Basket(BasketDataSchema, BusinessOwnedEntity):
     items: dict[uuid.UUID, BasketItemSchema] = {}
 
+    class Settings:
+        indexes = BusinessOwnedEntity.Settings.indexes
+
     @property
-    def total(self):
+    def total_price(self):
         total = sum(
             [
                 item.price * item.exchange_fee(self.currency)
@@ -21,13 +25,31 @@ class Basket(BasketDataSchema, BusinessOwnedEntity):
             total -= self.discount.apply_discount(total)
         return total
 
+    @property
+    def description(self):
+        return f"basket id = {self.uid} - total price = {self.total_price}"
+
+    @classmethod
+    def get_query(
+        cls,
+        user_id: uuid.UUID = None,
+        business_name: str = None,
+        is_deleted: bool = False,
+        status: (
+            Literal["active", "inactive", "paid", "reserve", "cancel"] | None
+        ) = None,
+        *args,
+        **kwargs,
+    ):
+        query = super().get_query(user_id, business_name, is_deleted, *args, **kwargs)
+        if status:
+            query.find({"status": status})
+        return query
+
     async def add_basket_item(self, item: BasketItemSchema):
         item_dict = item.model_dump(exclude=["uid", "quantity"])
         for existing_item in self.items.values():
-            if (
-                existing_item.model_dump(exclude=["uid", "quantity"])
-                == item_dict
-            ):
+            if existing_item.model_dump(exclude=["uid", "quantity"]) == item_dict:
                 existing_item.quantity += item.quantity
                 await self.save()
                 return

@@ -1,5 +1,5 @@
 services:
-  app:
+  basket:
     build: app
     restart: unless-stopped
     command: python app.py
