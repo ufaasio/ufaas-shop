@@ -4,7 +4,12 @@ from typing import Literal
 
 from fastapi_mongo_base.models import BusinessOwnedEntity
 
-from .schemas import BasketDataSchema, BasketDetailSchema, BasketItemSchema
+from .schemas import (
+    BasketDataSchema,
+    BasketDetailSchema,
+    BasketItemSchema,
+    BasketItemChangeSchema,
+)
 
 
 class Basket(BasketDataSchema, BusinessOwnedEntity):
@@ -62,7 +67,7 @@ class Basket(BasketDataSchema, BusinessOwnedEntity):
         await self.save()
 
     async def update_basket_item(
-        self, item_id: uuid.UUID, quantity_change: Decimal, **kwargs
+        self, item_id: uuid.UUID, data: BasketItemChangeSchema, **kwargs
     ):
         basket_item = self.items.get(item_id)
 
@@ -71,12 +76,14 @@ class Basket(BasketDataSchema, BusinessOwnedEntity):
                 return
             raise ValueError(f"Item with id {item_id} not found in the basket.")
 
-        new_quantity = basket_item.quantity + quantity_change
-        if new_quantity <= 0:
-            self.items.pop(item_id)
+        if data.new_quantity:
+            basket_item.quantity = data.new_quantity
         else:
-            basket_item.quantity = new_quantity
+            basket_item.quantity = basket_item.quantity + data.quantity_change
 
+        if basket_item.quantity <= 0:
+            self.items.pop(item_id)
+        
         await self.save()
 
     async def delete_basket_item(self, item_id: uuid.UUID):

@@ -8,7 +8,7 @@ import httpx
 from fastapi_mongo_base.schemas import BusinessOwnedEntitySchema
 from fastapi_mongo_base.utils.aionetwork import aio_request
 from fastapi_mongo_base.utils.bsontools import decimal_amount
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from server.config import Settings
 from ufaas.apps.saas.schemas import Bundle
 
@@ -16,7 +16,7 @@ from ufaas.apps.saas.schemas import Bundle
 class DiscountSchema(BaseModel):
     code: str
     user_id: uuid.UUID
-    discount: Decimal = Field(default=Decimal(0), gt=0, description="Discount amount")
+    discount: Decimal = Decimal(0) # Field(default=Decimal(0), gt=0, description="Discount amount")
 
     @field_validator("discount", mode="before")
     def validate_discount(cls, value):
@@ -34,17 +34,12 @@ class BasketItemCreateSchema(BaseModel):
     quantity: Decimal = Decimal(1)
     # extra_data: dict | None = None
 
-    async def a(product_url: str):
-        import aiohttp
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(product_url) as response:
-                response.raise_for_status()
-                data: dict = await response.json()
-        return data
-
     def from_allowed_domain(self):
         return True
+
+    @field_validator("quantity", mode="before")
+    def validate_quantity(cls, value):
+        return decimal_amount(value)
 
     async def get_basket_item(self):
         async with httpx.AsyncClient() as client:
@@ -91,7 +86,7 @@ class BasketItemSchema(BasketItemCreateSchema):
     def price(self):
         price = self.unit_price * self.quantity
         if self.discount:
-            price -= self.discount.apply_discount(price)
+            price -= self.discount.discount
         return price
 
     def exchange_fee(self, currency):
@@ -144,7 +139,16 @@ class BasketItemSchema(BasketItemCreateSchema):
 
 
 class BasketItemChangeSchema(BaseModel):
-    quantity_change: Decimal = Decimal(1)
+    quantity_change: Decimal | None = None
+    new_quantity: Decimal | None = None
+
+    @model_validator(mode="before")
+    def validate_quantity(cls, values: dict):
+        if values.get("quantity_change") is None and values.get("new_quantity") is None:
+            raise ValueError("Either quantity_change or new_quantity must be provided")
+        if values.get("quantity_change") is not None and values.get("new_quantity") is not None:
+            raise ValueError("Only one of quantity_change or new_quantity can be provided")
+        return values
 
 
 class BasketStatusEnum(str, Enum):

@@ -12,7 +12,7 @@ from ufaas.schemas import WalletSchema
 from ufaas_fastapi_business.models import Business
 
 from .models import Basket
-from .schemas import BasketStatusEnum, DiscountSchema, ItemType
+from .schemas import BasketStatusEnum, DiscountSchema, ItemType, VoucherSchema
 
 
 async def reserve_basket(basket: Basket):
@@ -198,19 +198,14 @@ async def validate_basket(basket: Basket, business: Business):
     return payment
 
 
-async def apply_discount(basket: Basket, discount_code: str) -> Basket:
+async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> Basket:
     from apps.voucher.models import Voucher
     from apps.voucher.schemas import VoucherStatus
 
-    # TODO check if voucher is limited products
-
-    voucher = await Voucher.get_by_code(basket.business_name, discount_code, basket.user_id)
-    if not voucher:
+    if not voucher_code:
         return basket
 
-    if voucher.status != VoucherStatus.ACTIVE:
-        return basket
-
+    discount_code = voucher_code.code
     if basket.discount:
         prev_discount = await Voucher.get_by_code(
             basket.business_name, basket.discount.code
@@ -218,7 +213,21 @@ async def apply_discount(basket: Basket, discount_code: str) -> Basket:
         prev_discount.redeemed -= 1
         await prev_discount.save()
 
-    discount_value = voucher.calculate_discount(basket.amount)
+    # TODO check if voucher is limited products
+
+    logging.info(f"Applying discount {discount_code} to basket {basket.uid} {basket.user_id}")
+
+    voucher: Voucher = await Voucher.get_by_code(
+        basket.business_name, discount_code, basket.user_id
+    )
+    if not voucher:
+        logging.error(f"Voucher {discount_code} not found for user {basket.user_id}")
+        raise BaseHTTPException(404, "invalid_voucher", f"Voucher {discount_code} not found for user")
+
+    if voucher.status != VoucherStatus.ACTIVE:
+        return basket
+
+    discount_value = voucher.calculate_discount(basket.subtotal)
     basket.discount = DiscountSchema(
         code=voucher.code, discount=discount_value, user_id=basket.user_id
     )

@@ -137,10 +137,9 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         self, request: Request, uid: uuid.UUID, data: BasketUpdateSchema
     ):
         basket = await super().update_item(
-            request, uid, data.model_dump(exclude_none=True)
+            request, uid, data.model_dump(exclude_unset=True)
         )
-        if data.voucher:
-            basket = await apply_discount(basket, data.voucher.code)
+        basket = await apply_discount(basket, data.voucher)
 
         return basket.detail
 
@@ -183,7 +182,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         )
         if not basket.is_modifiable:
             raise BaseHTTPException(400, "Basket is not active")
-        await basket.update_basket_item(item_uid, data.quantity_change)
+        await basket.update_basket_item(item_uid, data)
         return basket.detail
 
     async def delete_basket_item(
