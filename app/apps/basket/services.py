@@ -71,19 +71,21 @@ async def get_default_wallet(business: Business, user_id: uuid.UUID) -> WalletSc
 
 
 # @basic.try_except_wrapper
-async def create_payment_detail(basket: Basket, business: Business):
+async def create_payment_detail(basket: Basket, business: Business, callback_url: str | None = None):
     wallet = await get_default_wallet(business, basket.user_id)
     # TODO make payment detail a model
+    # callback_url = callback_url or f"{business.config.core_url}api/v1/apps/basket/baskets/{basket.uid}/validate"
+    callback_url = f"{business.config.core_url}api/v1/apps/basket/baskets/{basket.uid}/validate"
     payment_detail = json.loads(
         dumps(
             {
                 "user_id": basket.user_id,
                 "wallet_id": wallet.uid,
                 "basket_id": basket.uid,
-                "amount": basket.subtotal,
+                "amount": basket.amount,
                 "description": basket.description,
                 "currency": basket.currency,
-                "callback_url": f"{business.config.core_url}api/v1/apps/basket/baskets/{basket.uid}/validate",
+                "callback_url": callback_url,
             }
         )
     )
@@ -117,12 +119,14 @@ async def checkout_basket(
         basket.callback_url = callback_url
         await basket.save()
 
+    logging.info(f"{basket.callback_url=}")
+
     # TODO check all items in basket
     # await validate_basket(basket)
     # TODO reserve items
     # await reserve_basket(basket)
 
-    payment = await create_payment_detail(basket, business)
+    payment = await create_payment_detail(basket, business, callback_url)
     logging.info(f"{payment=}")
 
     payment_uid = payment.get("uid")
@@ -180,6 +184,7 @@ async def validate_basket(basket: Basket, business: Business):
         },
     )
     if payment["status"] != "SUCCESS":
+        return payment
         raise BaseHTTPException(
             400, "invalid_status", f"Payment is not successful. {payment['status']}"
         )
@@ -213,7 +218,10 @@ async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> 
         prev_discount.redeemed -= 1
         await prev_discount.save()
 
-    # TODO check if voucher is limited products
+    if not discount_code:
+        basket.discount = None
+        await basket.save()
+        return basket
 
     logging.info(f"Applying discount {discount_code} to basket {basket.uid} {basket.user_id}")
 
@@ -227,6 +235,7 @@ async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> 
     if voucher.status != VoucherStatus.ACTIVE:
         return basket
 
+    # TODO check if voucher is limited products
     discount_value = voucher.calculate_discount(basket.subtotal)
     basket.discount = DiscountSchema(
         code=voucher.code, discount=discount_value, user_id=basket.user_id

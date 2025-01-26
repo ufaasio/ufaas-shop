@@ -216,11 +216,19 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         auth = await authorization_middleware(request, anonymous_accepted=True)
         basket: Basket = await Basket.get_by_uid(uid)
         await validate_basket(basket, auth.business)
-        if basket.status == "paid":
-            if request.method == "GET":
-                return RedirectResponse(url=basket.callback_url)
-            return {"redirect_url": basket.callback_url}
+        # if basket.status == "paid":
+        #     if request.method == "GET":
+        #         return RedirectResponse(url=basket.callback_url)
+        #     return {"redirect_url": basket.callback_url}
 
+        import logging
+        logging.info(f"{request.query_params}")
+
+        redirect_url = f"{basket.callback_url}{'&' if '?' in basket.callback_url else '?'}{request.query_params}"
+
+        if request.method == "GET":
+            return RedirectResponse(url=redirect_url)
+        return {"redirect_url": redirect_url}
         raise BaseHTTPException(400, "Basket is not paid")
 
 

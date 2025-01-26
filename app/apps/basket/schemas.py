@@ -205,7 +205,7 @@ class BasketCreateSchema(BaseModel):
 
 
 class VoucherSchema(BaseModel):
-    code: str
+    code: str | None
 
 
 class BasketUpdateSchema(BaseModel):
