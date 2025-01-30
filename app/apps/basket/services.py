@@ -215,8 +215,9 @@ async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> 
         prev_discount = await Voucher.get_by_code(
             basket.business_name, basket.discount.code
         )
-        prev_discount.redeemed -= 1
-        await prev_discount.save()
+        if prev_discount:
+            prev_discount.redeemed -= 1
+            await prev_discount.save()
 
     if not discount_code:
         basket.discount = None
