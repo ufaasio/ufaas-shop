@@ -55,8 +55,12 @@ class Basket(BasketDataSchema, BusinessOwnedEntity):
             query.find({"status": status})
         return query
 
-    async def add_basket_item(self, item: BasketItemSchema):
+    async def add_basket_item(self, item: BasketItemSchema, single: bool = False):
         item_dict = item.model_dump(exclude=["uid", "quantity"])
+        
+        if single:
+            self.items.clear()
+
         for existing_item in self.items.values():
             if existing_item.model_dump(exclude=["uid", "quantity"]) == item_dict:
                 existing_item.quantity += item.quantity

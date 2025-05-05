@@ -152,6 +152,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         request: Request,
         data: BasketItemCreateSchema,
         uid: uuid.UUID | None = None,
+        single: bool = False,
     ):
         auth = await self.get_auth(request)
 
@@ -166,7 +167,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         )
         if not basket.is_modifiable:
             raise BaseHTTPException(400, "Basket is not active")
-        await basket.add_basket_item(await data.get_basket_item())
+        await basket.add_basket_item(await data.get_basket_item(), single=single)
         return basket.detail
 
     async def update_basket_item(
