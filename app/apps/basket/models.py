@@ -1,63 +1,42 @@
-import uuid
 from decimal import Decimal
-from typing import Literal
+from typing import ClassVar
 
-from fastapi_mongo_base.models import BusinessOwnedEntity
+from fastapi_mongo_base.models import TenantUserEntity
 
 from .schemas import (
     BasketDataSchema,
     BasketDetailSchema,
-    BasketItemSchema,
     BasketItemChangeSchema,
+    BasketItemSchema,
 )
 
 
-class Basket(BasketDataSchema, BusinessOwnedEntity):
-    items: dict[uuid.UUID, BasketItemSchema] = {}
-
-    class Settings:
-        indexes = BusinessOwnedEntity.Settings.indexes
+class Basket(BasketDataSchema, TenantUserEntity):
+    items: ClassVar[dict[str, BasketItemSchema]] = {}
 
     @property
-    def subtotal(self):
+    def subtotal(self) -> Decimal:
         total = sum(
-            [
-                item.price * item.exchange_fee(self.currency)
-                for item in self.items.values()
-            ]
+            item.price * item.exchange_fee(self.currency)
+            for item in self.items.values()
         )
         return total
 
     @property
-    def amount(self):
+    def amount(self) -> Decimal:
         if self.discount:
             return self.subtotal - self.discount.discount
         return self.subtotal
 
     @property
-    def description(self):
+    def description(self) -> str:
         return f"basket id = {self.uid} - total price = {self.subtotal}"
 
-    @classmethod
-    def get_query(
-        cls,
-        user_id: uuid.UUID = None,
-        business_name: str = None,
-        is_deleted: bool = False,
-        status: (
-            Literal["active", "inactive", "paid", "reserve", "cancel"] | None
-        ) = None,
-        *args,
-        **kwargs,
-    ):
-        query = super().get_query(user_id, business_name, is_deleted, *args, **kwargs)
-        if status:
-            query.find({"status": status})
-        return query
-
-    async def add_basket_item(self, item: BasketItemSchema, single: bool = False):
+    async def add_basket_item(
+        self, item: BasketItemSchema, single: bool = False
+    ) -> None:
         item_dict = item.model_dump(exclude=["uid", "quantity"])
-        
+
         if single:
             self.items.clear()
 
@@ -71,12 +50,12 @@ class Basket(BasketDataSchema, BusinessOwnedEntity):
         await self.save()
 
     async def update_basket_item(
-        self, item_id: uuid.UUID, data: BasketItemChangeSchema, **kwargs
-    ):
-        basket_item = self.items.get(item_id)
+        self, item_id: str, data: BasketItemChangeSchema, **kwargs: object
+    ) -> None:
+        basket_item: BasketItemSchema | None = self.items.get(item_id)
 
         if basket_item is None:
-            if kwargs.get("raise_error", False):
+            if kwargs.get("raise_error"):
                 return
             raise ValueError(f"Item with id {item_id} not found in the basket.")
 
@@ -87,10 +66,10 @@ class Basket(BasketDataSchema, BusinessOwnedEntity):
 
         if basket_item.quantity <= 0:
             self.items.pop(item_id)
-        
+
         await self.save()
 
-    async def delete_basket_item(self, item_id: uuid.UUID):
+    async def delete_basket_item(self, item_id: str) -> None:
         self.items.pop(item_id, None)
         await self.save()
 

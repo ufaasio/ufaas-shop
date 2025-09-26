@@ -1,10 +1,11 @@
 """FastAPI server configuration."""
 
 import dataclasses
+import os
 from pathlib import Path
 
 import dotenv
-from ufaas_fastapi_business.core import config
+from fastapi_mongo_base.core import config
 
 dotenv.load_dotenv()
 
@@ -13,7 +14,45 @@ dotenv.load_dotenv()
 class Settings(config.Settings):
     """Server config settings."""
 
+    project_name: str = os.getenv("PROJECT_NAME")
     base_dir: Path = Path(__file__).resolve().parent.parent
-    base_path: str = "/api/v1/apps/basket"
+    base_path: str = "/api/basket/v1"
+
     coverage_dir: Path = base_dir / "htmlcov"
     currency: str = "IRR"
+
+    @classmethod
+    def get_log_config(cls, console_level: str = "INFO", **kwargs: object) -> dict:
+        log_config = {
+            "formatters": {
+                "standard": {
+                    "format": "[{levelname} {name} : {filename}:{lineno} : {asctime} -> {funcName:10}] {message}",  # noqa: E501
+                    "style": "{",
+                }
+            },
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "level": console_level,
+                    "formatter": "standard",
+                },
+                "file": {
+                    "class": "logging.FileHandler",
+                    "level": "INFO",
+                    "formatter": "standard",
+                    "filename": "logs/app.log",
+                },
+            },
+            "loggers": {
+                "": {
+                    "handlers": [
+                        "console",
+                        "file",
+                    ],
+                    "level": console_level,
+                    "propagate": True,
+                },
+            },
+            "version": 1,
+        }
+        return log_config

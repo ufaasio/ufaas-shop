@@ -1,12 +1,10 @@
-import uuid
-
 from fastapi import Query, Request
 from fastapi.responses import RedirectResponse
 from fastapi_mongo_base.core.exceptions import BaseHTTPException
 from fastapi_mongo_base.schemas import PaginatedResponse
+from fastapi_mongo_base.utils import usso_routes
+
 from server.config import Settings
-from ufaas_fastapi_business.middlewares import authorization_middleware
-from ufaas_fastapi_business.routes import AbstractAuthRouter
 
 from .models import Basket
 from .schemas import (
@@ -17,14 +15,14 @@ from .schemas import (
     BasketStatusEnum,
     BasketUpdateSchema,
 )
-from .services import apply_discount, checkout_basket, validate_basket
+from .services import add_query_params, apply_discount, checkout_basket, validate_basket
 
 
-class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
-    def __init__(self):
-        super().__init__(model=Basket, schema=BasketDetailSchema, user_dependency=None)
+class BasketRouter(usso_routes.AbstractTenantUSSORouter):
+    model = Basket
+    schema = BasketDetailSchema
 
-    def config_routes(self, **kwargs):
+    def config_routes(self, **kwargs: object) -> None:
         super().config_routes(**kwargs)
 
         self.router.add_api_route(
@@ -55,31 +53,41 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         self.router.add_api_route(
             "/{uid}/checkout",
             self.checkout,
-            methods=["GET", "POST"],
+            methods=["GET"],
+        )
+        self.router.add_api_route(
+            "/{uid}/checkout",
+            self.checkout,
+            methods=["POST"],
         )
         self.router.add_api_route(
             "/{uid}/validate",
             self.validate,
-            methods=["GET", "POST"],
+            methods=["GET"],
+        )
+        self.router.add_api_route(
+            "/{uid}/validate",
+            self.validate,
+            methods=["POST"],
         )
 
     async def get_item(
         self,
-        uid: uuid.UUID = None,
-        user_id: uuid.UUID = None,
-        business_name: str = None,
+        uid: str | None = None,
+        user_id: str | None = None,
+        tenant_id: str | None = None,
         creation: bool = False,
-        callback_url=None,
-        **kwargs,
-    ):
+        callback_url: str | None = None,
+        **kwargs: object,
+    ) -> Basket:
         item = None
         if uid:
             item = await self.model.get_item(
-                uid, user_id=user_id, business_name=business_name, **kwargs
+                uid, user_id=user_id, tenant_id=tenant_id, **kwargs
             )
         if item is None:
             items = await self.model.list_items(
-                user_id=user_id, business_name=business_name, status="active"
+                user_id=user_id, tenant_id=tenant_id, status="active"
             )
             if items:
                 return items[0]
@@ -92,7 +100,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
                 )
 
             item = self.model(
-                business_name=business_name,
+                tenant_id=tenant_id,
                 user_id=user_id,
                 # TODO: correct basket management domain
                 callback_url=callback_url,
@@ -102,7 +110,7 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
 
         return item
 
-    async def retrieve_item(self, request: Request, uid: uuid.UUID):
+    async def retrieve_item(self, request: Request, uid: str) -> Basket:
         basket: Basket = await super().retrieve_item(request, uid)
 
         return basket.detail
@@ -112,12 +120,12 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         request: Request,
         offset: int = Query(0, ge=0),
         limit: int = Query(10, ge=0, le=Settings.page_max_limit),
-        status: BasketStatusEnum = None,
-    ):
-        auth = await self.get_auth(request)
+        status: BasketStatusEnum | None = None,
+    ) -> PaginatedResponse[BasketDetailSchema]:
+        user = await self.get_user(request)
         items, total = await self.model.list_total_combined(
-            user_id=auth.user_id,
-            business_name=auth.business.name,
+            user_id=user.user_id,
+            tenant_id=user.tenant_id,
             offset=offset,
             limit=limit,
             status=status,
@@ -129,39 +137,39 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
             items=items_in_schema, offset=offset, limit=limit, total=total
         )
 
-    async def create_item(self, request: Request, data: BasketCreateSchema):
-        basket = await super().create_item(request, data.model_dump())
+    async def create_item(self, request: Request, data: BasketCreateSchema) -> Basket:
+        basket: Basket = await super().create_item(request, data.model_dump())
         return basket.detail
 
     async def update_item(
-        self, request: Request, uid: uuid.UUID, data: BasketUpdateSchema
-    ):
-        basket = await super().update_item(
+        self, request: Request, uid: str, data: BasketUpdateSchema
+    ) -> Basket:
+        basket: Basket = await super().update_item(
             request, uid, data.model_dump(exclude_unset=True)
         )
         basket = await apply_discount(basket, data.voucher)
 
         return basket.detail
 
-    async def delete_item(self, request: Request, uid: uuid.UUID):
-        basket = await super().delete_item(request, uid)
+    async def delete_item(self, request: Request, uid: str) -> Basket:
+        basket: Basket = await super().delete_item(request, uid)
         return basket.detail
 
     async def add_basket_item(
         self,
         request: Request,
         data: BasketItemCreateSchema,
-        uid: uuid.UUID | None = None,
+        uid: str | None = None,
         single: bool = False,
-    ):
-        auth = await self.get_auth(request)
+    ) -> Basket:
+        user = await self.get_user(request)
 
-        origin = request.headers.get("origin") or auth.business.main_domain
+        origin = request.headers.get("origin")
 
         basket: Basket = await self.get_item(
             uid=uid,
-            user_id=auth.user_id,
-            business_name=auth.business.name,
+            user_id=user.user_id,
+            tenant_id=user.tenant_id,
             creation=True,
             callback_url=origin,
         )
@@ -173,13 +181,13 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
     async def update_basket_item(
         self,
         request: Request,
-        uid: uuid.UUID,
-        item_uid: uuid.UUID,
+        uid: str,
+        item_uid: str,
         data: BasketItemChangeSchema,
-    ):
-        auth = await self.get_auth(request)
+    ) -> Basket:
+        user = await self.get_user(request)
         basket: Basket = await self.get_item(
-            uid=uid, user_id=auth.user_id, business_name=auth.business.name
+            uid=uid, user_id=user.user_id, tenant_id=user.tenant_id
         )
         if not basket.is_modifiable:
             raise BaseHTTPException(400, "Basket is not active")
@@ -187,45 +195,42 @@ class BasketRouter(AbstractAuthRouter[Basket, BasketDetailSchema]):
         return basket.detail
 
     async def delete_basket_item(
-        self, request: Request, uid: uuid.UUID, item_uid: uuid.UUID
-    ):
-        auth = await self.get_auth(request)
+        self, request: Request, uid: str, item_uid: str
+    ) -> Basket:
+        user = await self.get_user(request)
         basket: Basket = await self.get_item(
-            uid=uid, user_id=auth.user_id, business_name=auth.business.name
+            uid=uid, user_id=user.user_id, tenant_id=user.tenant_id
         )
         if not basket.is_modifiable:
             raise BaseHTTPException(400, "Basket is not active")
         await basket.delete_basket_item(item_uid)
         return basket.detail
 
-    async def checkout(
+    async def checkout(  # noqa: ANN201
         self,
         request: Request,
-        uid: uuid.UUID,
-        callback_url: str = None,
+        uid: str,
+        callback_url: str | None = None,
     ):
-        auth = await self.get_auth(request)
+        user = await self.get_user(request)
         basket: Basket = await self.get_item(
-            uid, user_id=auth.user_id, business_name=auth.business.name
+            uid, user_id=user.user_id, tenant_id=user.tenant_id
         )
-        url = await checkout_basket(basket, auth.business, callback_url)
+        url = await checkout_basket(basket, user.tenant_id, callback_url)
         if request.method == "GET":
             return RedirectResponse(url=url)
         return {"redirect_url": url}
 
-    async def validate(self, request: Request, uid: uuid.UUID):
-        auth = await authorization_middleware(request, anonymous_accepted=True)
+    async def validate(self, request: Request, uid: str):  # noqa: ANN201
+        user = await self.get_user(request)
         basket: Basket = await Basket.get_by_uid(uid)
-        await validate_basket(basket, auth.business)
+        await validate_basket(basket, user.tenant_id)
         # if basket.status == "paid":
         #     if request.method == "GET":
         #         return RedirectResponse(url=basket.callback_url)
         #     return {"redirect_url": basket.callback_url}
 
-        import logging
-        logging.info(f"{request.query_params}")
-
-        redirect_url = f"{basket.callback_url}{'&' if '?' in basket.callback_url else '?'}{request.query_params}"
+        redirect_url = add_query_params(basket.callback_url, request.query_params)
 
         if request.method == "GET":
             return RedirectResponse(url=redirect_url)

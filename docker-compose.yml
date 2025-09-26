@@ -1,21 +1,20 @@
 services:
-  basket:
+  app:
     build: app
     restart: unless-stopped
-    command: python app.py
+    hostname: ${PROJECT_NAME}
     env_file:
       - .env
-    volumes:
-      - ./app:/app
+    # volumes:
+    #   - ./app:/app
     networks:
-      - mongo-net
       - traefik-net
-      - ufaas-net
+      - mongo-net
+      - gateway-net
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.${PROJECT_NAME}.entrypoints=web"
       - "traefik.http.routers.${PROJECT_NAME}.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.${PROJECT_NAME}.middlewares=https-redirect"
       - "traefik.http.routers.${PROJECT_NAME}-secure.entrypoints=websecure"
       - "traefik.http.routers.${PROJECT_NAME}-secure.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.${PROJECT_NAME}-secure.tls=true"
@@ -28,5 +27,5 @@ networks:
     external: true
   mongo-net:
     external: true
-  ufaas-net:
+  gateway-net:
     external: true

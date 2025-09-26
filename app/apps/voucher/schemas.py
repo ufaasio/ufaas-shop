@@ -1,15 +1,15 @@
-import uuid
+import secrets
 from datetime import datetime
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 
-from fastapi_mongo_base.schemas import BusinessEntitySchema
-from fastapi_mongo_base.utils import bsontools, texttools
+from fastapi_mongo_base.schemas import TenantScopedEntitySchema
+from fastapi_mongo_base.utils import bsontools
 from pydantic import BaseModel, Field, field_validator
-from ufaas_fastapi_business.core import enums
+from ufaas.enums import Currency
 
 
-class VoucherStatus(str, Enum):
+class VoucherStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     EXPIRED = "expired"
@@ -18,7 +18,7 @@ class VoucherStatus(str, Enum):
 
 class VoucherCreateSchema(BaseModel):
     code: str = Field(
-        default_factory=lambda: texttools.generate_random_chars(10),
+        default_factory=lambda: secrets.token_urlsafe(10),
         description="Unique voucher code",
     )
     status: VoucherStatus = Field(
@@ -33,23 +33,25 @@ class VoucherCreateSchema(BaseModel):
     cap: Decimal | None = Field(
         default=None, gt=0, description="Maximum discount amount"
     )
-    currency: enums.Currency = enums.Currency.IRR
+    currency: Currency = Currency.IRR
     expired_at: datetime | None = Field(
         default=None, description="Expiration date of the voucher"
     )
     max_uses: int | None = Field(
         default=None, ge=1, description="Maximum number of uses"
     )
-    user_id: uuid.UUID | None = None
-    limited_products: list[uuid.UUID] | None = None
+    user_id: str | None = None
+    limited_products: list[str] | None = None
     meta_data: dict | None = None
 
     @field_validator("rate", mode="before")
-    def validate_rate(cls, value):
+    @classmethod
+    def validate_rate(cls, value: Decimal) -> Decimal:
         return bsontools.decimal_amount(value)
 
     @field_validator("cap", mode="before")
-    def validate_cap(cls, value):
+    @classmethod
+    def validate_cap(cls, value: Decimal) -> Decimal:
         return bsontools.decimal_amount(value)
 
     def calculate_discount(self, amount: Decimal) -> Decimal:
@@ -66,7 +68,7 @@ class VoucherUpdateSchema(BaseModel):
     limit: int | None = None
 
 
-class VoucherSchema(VoucherCreateSchema, BusinessEntitySchema):
+class VoucherSchema(VoucherCreateSchema, TenantScopedEntitySchema):
     redeemed: int = Field(
         default=0, ge=0, description="Number of times the voucher has been used"
     )

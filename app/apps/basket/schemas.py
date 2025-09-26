@@ -1,29 +1,31 @@
-import uuid
 from datetime import datetime
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 import httpx
-from fastapi_mongo_base.schemas import BusinessOwnedEntitySchema
-from fastapi_mongo_base.utils.aionetwork import aio_request
+import uuid6
+from fastapi_mongo_base.schemas import TenantUserEntitySchema
 from fastapi_mongo_base.utils.bsontools import decimal_amount
 from pydantic import BaseModel, Field, field_validator, model_validator
+
 from server.config import Settings
-from ufaas.apps.saas.schemas import Bundle
 
 
 class DiscountSchema(BaseModel):
     code: str
-    user_id: uuid.UUID
-    discount: Decimal = Decimal(0) # Field(default=Decimal(0), gt=0, description="Discount amount")
+    user_id: str
+    discount: Decimal = Decimal(
+        0
+    )  # Field(default=Decimal(0), gt=0, description="Discount amount")
 
     @field_validator("discount", mode="before")
-    def validate_discount(cls, value):
+    @classmethod
+    def validate_discount(cls, value: Decimal) -> Decimal:
         return decimal_amount(value)
 
 
-class ItemType(str, Enum):
+class ItemType(StrEnum):
     saas_package = "saas_package"
     retail_product = "retail_product"
 
@@ -34,14 +36,15 @@ class BasketItemCreateSchema(BaseModel):
     quantity: Decimal = Decimal(1)
     # extra_data: dict | None = None
 
-    def from_allowed_domain(self):
+    def from_allowed_domain(self) -> bool:
         return True
 
     @field_validator("quantity", mode="before")
-    def validate_quantity(cls, value):
+    @classmethod
+    def validate_quantity(cls, value: Decimal) -> Decimal:
         return decimal_amount(value)
 
-    async def get_basket_item(self):
+    async def get_basket_item(self) -> "BasketItemSchema":
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 self.product_url, headers={"Accept-Encoding": "identity"}
@@ -53,7 +56,7 @@ class BasketItemCreateSchema(BaseModel):
 
 
 class BasketItemSchema(BasketItemCreateSchema):
-    uid: uuid.UUID = Field(default_factory=uuid.uuid4)
+    uid: str = Field(default_factory=lambda: str(uuid6.uuid7()))
     name: str
     description: str | None = None
     unit_price: Decimal
@@ -68,14 +71,14 @@ class BasketItemSchema(BasketItemCreateSchema):
     reserve_url: str | None = None
     validation_url: str | None = None
 
-    revenue_share_id: uuid.UUID | None = None
+    revenue_share_id: str | None = None
     tax_id: str | None = None
     merchant: str | None = None
     discount: DiscountSchema | None = None
 
     # SaaS-specific fields
     plan_duration: int | None = None  # Only for SaaS packages
-    bundles: list[Bundle] | None = None  # Optional field for SaaS packages
+    bundles: list | None = None  # Optional field for SaaS packages
 
     variant: dict[str, str] | None = None
 
@@ -83,59 +86,63 @@ class BasketItemSchema(BasketItemCreateSchema):
     meta_data: dict | None = None
 
     @property
-    def price(self):
+    def price(self) -> Decimal:
         price = self.unit_price * self.quantity
         if self.discount:
             price -= self.discount.discount
         return price
 
-    def exchange_fee(self, currency):
+    def exchange_fee(self, currency: str) -> int:
         if self.currency != currency:
             # TODO: Implement currency exchange
             raise NotImplementedError("Currency exchange not implemented")
         return 1
 
     @field_validator("unit_price", mode="before")
-    def validate_price(cls, value):
+    @classmethod
+    def validate_price(cls, value: Decimal) -> Decimal:
         return decimal_amount(value)
 
     @field_validator("quantity", mode="before")
-    def validate_quantity(cls, value):
+    @classmethod
+    def validate_quantity(cls, value: Decimal) -> Decimal:
         return decimal_amount(value)
 
-    async def validate_product(self):
+    async def validate_product(self) -> bool:
         if self.validation_url is None:
             raise ValueError("Validation URL is not set")
 
-        validation_data = await aio_request(method="GET", url=self.validation_url)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.validation_url)
+            response.raise_for_status()
+            validation_data: dict = response.json()
         if validation_data.get("price") != self.unit_price:
             return False
 
         if validation_data.get("stock_quantity") is None:
             return True
 
-        if validation_data.get("stock_quantity") < self.quantity:
-            return False
-
         # TODO check attributes
 
-        return True
+        return validation_data.get("stock_quantity", 0) >= self.quantity
 
-    async def reserve_product(self):
+    async def reserve_product(self) -> dict | None:
         if self.reserve_url is None:
             return
 
-        return await aio_request(
-            method="POST", url=self.reserve_url, json=self.model_dump()
-        )
+        async with httpx.AsyncClient() as client:
+            response = await client.post(self.reserve_url, json=self.model_dump())
+            response.raise_for_status()
+            return response.json()
 
-    async def webhook_product(self):
+    async def webhook_product(self) -> dict | None:
         if self.webhook_url is None:
             return
 
-        return await aio_request(
-            method="POST", url=self.webhook_url, json=self.model_dump()
-        )
+        async with httpx.AsyncClient() as client:
+            response = await client.post(self.webhook_url, json=self.model_dump())
+            response.raise_for_status()
+            return response.json()
 
 
 class BasketItemChangeSchema(BaseModel):
@@ -143,15 +150,21 @@ class BasketItemChangeSchema(BaseModel):
     new_quantity: Decimal | None = None
 
     @model_validator(mode="before")
-    def validate_quantity(cls, values: dict):
+    @classmethod
+    def validate_quantity(cls, values: dict) -> dict:
         if values.get("quantity_change") is None and values.get("new_quantity") is None:
             raise ValueError("Either quantity_change or new_quantity must be provided")
-        if values.get("quantity_change") is not None and values.get("new_quantity") is not None:
-            raise ValueError("Only one of quantity_change or new_quantity can be provided")
+        if (
+            values.get("quantity_change") is not None
+            and values.get("new_quantity") is not None
+        ):
+            raise ValueError(
+                "Only one of quantity_change or new_quantity can be provided"
+            )
         return values
 
 
-class BasketStatusEnum(str, Enum):
+class BasketStatusEnum(StrEnum):
     active = "active"
     locked = "locked"
     reserved = "reserved"
@@ -160,7 +173,7 @@ class BasketStatusEnum(str, Enum):
     expired = "expired"
 
 
-class BasketDataSchema(BusinessOwnedEntitySchema):
+class BasketDataSchema(TenantUserEntitySchema):
     status: BasketStatusEnum = Field(
         default=BasketStatusEnum.active, description="Status of the basket"
     )
@@ -170,32 +183,35 @@ class BasketDataSchema(BusinessOwnedEntitySchema):
 
     checkout_at: datetime | None = None
     payment_detail_url: str | None = None
-    invoice_id: uuid.UUID | None = None
+    invoice_id: str | None = None
 
     discount: DiscountSchema | None = None
 
     @property
-    def is_modifiable(self):
+    def is_modifiable(self) -> bool:
         return self.status == "active"
 
 
 class BasketDetailSchema(BasketDataSchema):
-    items: list[BasketItemSchema] = []
+    items: list[BasketItemSchema] = Field(default_factory=list)
     subtotal: Decimal = Field(description="Total amount of the basket")
     amount: Decimal = Field(description="Total amount of the basket after discount")
 
     @field_validator("items", mode="before")
-    def validate_items(cls, value):
+    @classmethod
+    def validate_items(cls, value: dict) -> list[BasketItemSchema]:
         if isinstance(value, dict):
-            return [item for item in value.values()]
+            return list(value.values())
         return value
 
     @field_validator("subtotal", mode="before")
-    def validate_subtotal(cls, value):
+    @classmethod
+    def validate_subtotal(cls, value: Decimal) -> Decimal:
         return decimal_amount(value)
 
     @field_validator("amount", mode="before")
-    def validate_amount(cls, value):
+    @classmethod
+    def validate_amount(cls, value: Decimal) -> Decimal:
         return decimal_amount(value)
 
 
@@ -216,6 +232,6 @@ class BasketUpdateSchema(BaseModel):
     meta_data: dict[str, Any] | None = None
 
     checkout_at: datetime | None = None
-    invoice_id: uuid.UUID | None = None
+    invoice_id: str | None = None
 
     voucher: VoucherSchema | None = None
