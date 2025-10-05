@@ -1,23 +1,21 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Literal, Self
 
-import httpx
-import uuid6
 from fastapi_mongo_base.schemas import TenantUserEntitySchema
 from fastapi_mongo_base.utils.bsontools import decimal_amount
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from apps.product.models import Product
+from apps.product.schemas import ItemType
 from server.config import Settings
 
 
 class DiscountSchema(BaseModel):
     code: str
     user_id: str
-    discount: Decimal = Decimal(
-        0
-    )  # Field(default=Decimal(0), gt=0, description="Discount amount")
+    discount: Decimal = Field(default=Decimal(0), description="Discount amount")
 
     @field_validator("discount", mode="before")
     @classmethod
@@ -25,61 +23,46 @@ class DiscountSchema(BaseModel):
         return decimal_amount(value)
 
 
-class ItemType(StrEnum):
-    saas_package = "saas_package"
-    retail_product = "retail_product"
+class VoucherSchema(BaseModel):
+    code: str | None
 
 
 class BasketItemCreateSchema(BaseModel):
-    product_url: str
+    uid: str
     currency: str = Settings.currency
     quantity: Decimal = Decimal(1)
-    # extra_data: dict | None = None
-
-    def from_allowed_domain(self) -> bool:
-        return True
 
     @field_validator("quantity", mode="before")
     @classmethod
     def validate_quantity(cls, value: Decimal) -> Decimal:
         return decimal_amount(value)
 
-    async def get_basket_item(self) -> "BasketItemSchema":
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                self.product_url, headers={"Accept-Encoding": "identity"}
-            )
-            response.raise_for_status()
-            data: dict = response.json()
-        data.update(self.model_dump(exclude_none=True))
-        return BasketItemSchema(**data)
+    async def get_basket_item(self) -> Self:
+        product = await Product.get_by_uid(self.uid)
+        if product is None:
+            raise ValueError(f"Product with id {self.uid} not found")
+        return BasketItemSchema.model_validate(product.model_dump())
 
 
 class BasketItemSchema(BasketItemCreateSchema):
-    uid: str = Field(default_factory=lambda: str(uuid6.uuid7()))
     name: str
     description: str | None = None
     unit_price: Decimal
-    # currency: str = Settings.currency
-    # quantity: Decimal = Decimal(1)
+    currency: str = Settings.currency
+    quantity: Decimal = Decimal(1)
 
     # Item type to distinguish between SaaS and e-commerce
-    item_type: ItemType = ItemType.retail_product  # Default to e-commerce product
-
-    # product_url: str | None = None
-    webhook_url: str | None = None
-    reserve_url: str | None = None
-    validation_url: str | None = None
+    item_type: ItemType = ItemType.saas_package  # Default to e-commerce product
 
     revenue_share_id: str | None = None
     tax_id: str | None = None
     merchant: str | None = None
+
     discount: DiscountSchema | None = None
 
     # SaaS-specific fields
     plan_duration: int | None = None  # Only for SaaS packages
     bundles: list | None = None  # Optional field for SaaS packages
-
     variant: dict[str, str] | None = None
 
     # Optional additional data field for future extensions or custom data
@@ -108,66 +91,36 @@ class BasketItemSchema(BasketItemCreateSchema):
     def validate_quantity(cls, value: Decimal) -> Decimal:
         return decimal_amount(value)
 
-    async def validate_product(self) -> bool:
-        if self.validation_url is None:
-            raise ValueError("Validation URL is not set")
+    async def reserve_product(self) -> None:
+        return
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(self.validation_url)
-            response.raise_for_status()
-            validation_data: dict = response.json()
-        if validation_data.get("price") != self.unit_price:
-            return False
+    async def buy_product(self) -> None:
+        return
 
-        if validation_data.get("stock_quantity") is None:
-            return True
-
-        # TODO check attributes
-
-        return validation_data.get("stock_quantity", 0) >= self.quantity
-
-    async def reserve_product(self) -> dict | None:
-        if self.reserve_url is None:
-            return
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(self.reserve_url, json=self.model_dump())
-            response.raise_for_status()
-            return response.json()
-
-    async def webhook_product(self) -> dict | None:
-        if self.webhook_url is None:
-            return
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(self.webhook_url, json=self.model_dump())
-            response.raise_for_status()
-            return response.json()
+    async def release_product(self) -> None:
+        return
 
 
 class BasketItemChangeSchema(BaseModel):
     quantity_change: Decimal | None = None
     new_quantity: Decimal | None = None
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_quantity(cls, values: dict) -> dict:
-        if values.get("quantity_change") is None and values.get("new_quantity") is None:
+    @model_validator(mode="after")
+    def validate_quantity(self) -> Self:
+        if self.quantity_change is None and self.new_quantity is None:
             raise ValueError("Either quantity_change or new_quantity must be provided")
-        if (
-            values.get("quantity_change") is not None
-            and values.get("new_quantity") is not None
-        ):
+        if self.quantity_change is not None and self.new_quantity is not None:
             raise ValueError(
                 "Only one of quantity_change or new_quantity can be provided"
             )
-        return values
+        return self
 
 
 class BasketStatusEnum(StrEnum):
     active = "active"
     locked = "locked"
     reserved = "reserved"
+    validated = "validated"
     paid = "paid"
     cancelled = "cancelled"
     expired = "expired"
@@ -177,19 +130,26 @@ class BasketDataSchema(TenantUserEntitySchema):
     status: BasketStatusEnum = Field(
         default=BasketStatusEnum.active, description="Status of the basket"
     )
-    callback_url: str | None = Field(description="Callback URL for the basket")
+    callback_url: str | None = Field(None, description="Callback URL for the basket")
 
     currency: str = Settings.currency
 
     checkout_at: datetime | None = None
-    payment_detail_url: str | None = None
+    payment_id: str | None = None
     invoice_id: str | None = None
 
     discount: DiscountSchema | None = None
+    voucher: VoucherSchema | None = None
 
     @property
     def is_modifiable(self) -> bool:
         return self.status == "active"
+
+    @property
+    def payment_detail_url(self) -> str | None:
+        if not self.payment_id:
+            return None
+        return f"{Settings.core_url}{Settings.base_path}/payments/{self.payment_id}"
 
 
 class BasketDetailSchema(BasketDataSchema):
@@ -216,12 +176,9 @@ class BasketDetailSchema(BasketDataSchema):
 
 
 class BasketCreateSchema(BaseModel):
+    user_id: str | None = None
     callback_url: str | None = None
-    meta_data: dict[str, Any] | None = None
-
-
-class VoucherSchema(BaseModel):
-    code: str | None
+    meta_data: dict[str, object] | None = None
 
 
 class BasketUpdateSchema(BaseModel):
@@ -229,7 +186,7 @@ class BasketUpdateSchema(BaseModel):
     items: list[BasketItemSchema] | None = None
 
     payment_detail_url: str | None = None
-    meta_data: dict[str, Any] | None = None
+    meta_data: dict[str, object] | None = None
 
     checkout_at: datetime | None = None
     invoice_id: str | None = None

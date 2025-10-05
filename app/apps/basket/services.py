@@ -1,107 +1,92 @@
 import asyncio
-import json
 import logging
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-import httpx
-import json_advanced
 from fastapi_mongo_base.core.exceptions import BaseHTTPException
 from ufaas.services import AccountingClient
-from ufaas.wallet import WalletSchema
 
+from apps.payment.models import Payment, PaymentStatus
+from apps.tenant.models import Tenant
 from server.config import Settings
+from utils.saas import EnrollmentCreateSchema, EnrollmentSchema
+from utils.wallets import get_or_create_user_wallet
 
 from .models import Basket
-from .schemas import BasketStatusEnum, DiscountSchema, ItemType, VoucherSchema
+from .schemas import (
+    BasketItemSchema,
+    BasketStatusEnum,
+    DiscountSchema,
+    ItemType,
+    VoucherSchema,
+)
 
 # from ufaas.apps.saas.schemas import EnrollmentCreateSchema, EnrollmentSchema
 
 
-def add_query_params(url: str, new_params: dict) -> str:
-    parsed = urlparse(url)
-    existing_params = parse_qs(parsed.query)
-    flat_params = {k: v[0] for k, v in existing_params.items()}
-    flat_params.update(new_params)
-    query = urlencode(flat_params)
-    new_url = urlunparse(parsed._replace(query=query))
-    return new_url
-
-
-async def reserve_basket(basket: Basket) -> None:
-    reserve_tasks = [
-        item.reserve_product() for item in basket.items.values() if item.reserve_url
-    ]
-
+async def reserve_basket(basket: Basket, *, save: bool = True) -> None:
+    reserve_tasks = [item.reserve_product() for item in basket.items.values()]
     asyncio.gather(*reserve_tasks)
-    basket.status = "reserved"
-
-    await basket.save()
-
-
-async def validate_basket(basket: Basket) -> None:
-    for item in basket.items.values():
-        if not await item.validate_product():
-            raise ValueError("Product validation failed")
+    basket.status = BasketStatusEnum.reserved
+    if save:
+        return await basket.save()
+    return basket
 
 
-async def webhook_basket(basket: Basket) -> None:
-    for item in basket.items.values():
-        await item.webhook_product()
+async def buy_basket(basket: Basket, *, save: bool = True) -> None:
+    buy_tasks = [item.buy_product() for item in basket.items.values()]
+    asyncio.gather(*buy_tasks)
+    basket.status = BasketStatusEnum.paid
+    await purchase_basket_saas(basket, basket.tenant_id)
+    if save:
+        return await basket.save()
+    return basket
 
 
-async def cancel_basket(basket: Basket) -> None:
-    basket.status = "cancel"
-    await basket.save()
-
-    for item in basket.items.values():
-        await item.webhook_product()
-
-
-async def get_default_wallet(tenant_id: str, user_id: str) -> WalletSchema:
-    async with AccountingClient(tenant_id) as client:
-        wallet = await client.get_wallet(user_id)
-        return wallet
+async def cancel_basket(basket: Basket, *, save: bool = True) -> None:
+    release_tasks = [item.release_product() for item in basket.items.values()]
+    await asyncio.gather(*release_tasks)
+    basket.status = BasketStatusEnum.cancelled
+    if save:
+        return await basket.save()
+    return basket
 
 
-async def create_payment_detail(
-    basket: Basket, tenant_id: str, callback_url: str | None = None
-) -> dict:
-    wallet = await get_default_wallet(tenant_id, basket.user_id)
-    callback_url = (
-        f"{business.config.core_url}api/basket/v1/baskets/{basket.uid}/validate"
-    )
-    payment_detail = json.loads(
-        json_advanced.dumps({
-            "user_id": basket.user_id,
-            "wallet_id": wallet.uid,
-            "basket_id": basket.uid,
-            "amount": basket.amount,
-            "description": basket.description,
-            "currency": basket.currency,
-            "callback_url": callback_url,
-        })
-    )
-    async with httpx.AsyncClient() as client:
-        payment = await client.post(
-            f"{business.config.core_url}api/cashier/v1/payments/",
-            headers={
-                "Authorization": f"Bearer {await business.get_access_token()}",
-                "Accept-Encoding": "identity",
-            },
-            json=payment_detail,
+async def create_basket_payment(
+    basket: Basket, callback_url: str | None = None
+) -> Payment:
+    async with AccountingClient(basket.tenant_id) as client:
+        await client.get_token([
+            "create:finance/accounting/wallet",
+            "create:finance/cashier/payment",
+        ])
+        wallet = await get_or_create_user_wallet(client, basket.user_id)
+        tenant = await Tenant.get_by_tenant_id(basket.tenant_id)
+
+        callback_url = (
+            f"{Settings.core_url}{Settings.base_path}/baskets/{basket.uid}/validate"
         )
+        payment = await Payment(
+            tenant_id=basket.tenant_id,
+            user_id=basket.user_id,
+            wallet_id=wallet.uid,
+            basket_id=basket.uid,
+            amount=basket.amount,
+            currency=basket.currency,
+            description=basket.description,
+            callback_url=callback_url,
+            available_ipgs=tenant.ipgs,
+            accept_wallet=True,
+            voucher_code=basket.voucher.code if basket.voucher else None,
+        ).save()
     return payment
 
 
-async def checkout_basket(
+async def create_checkout_basket_url(
     basket: Basket,
-    tenant_id: str,
     callback_url: str | None = None,
-) -> dict:
-    # TODO Check if basket is active
+) -> str:
     if basket.status in [BasketStatusEnum.locked, BasketStatusEnum.reserved]:
         return basket.payment_detail_url
-    if basket.status != "active":
+    if basket.status != BasketStatusEnum.active:
         raise BaseHTTPException(
             400,
             "invalid_status",
@@ -111,52 +96,54 @@ async def checkout_basket(
         basket.callback_url = callback_url
         await basket.save()
 
-    logging.info("%s", basket.callback_url)
+    await reserve_basket(basket, save=False)
 
-    # TODO check all items in basket
-    # await validate_basket(basket)
-    # TODO reserve items
-    # await reserve_basket(basket)
-
-    payment = await create_payment_detail(basket, tenant_id, callback_url)
-    logging.info("%s", payment)
-
-    payment_uid = payment.get("uid")
-    basket.payment_detail_url = (
-        f"{tenant_id}{Settings.base_path}/payments/{payment_uid}"
-    )
-    basket.status = "locked"
+    payment = await create_basket_payment(basket, callback_url)
+    basket.payment_id = payment.uid
+    basket.status = BasketStatusEnum.locked
     await basket.save()
-
-    # TODO connect to frontend
-
-    return basket.payment_detail_url
+    return f"{basket.payment_detail_url}/start"
 
 
-async def purchase_basket_saas(basket: Basket, tenant_id: str) -> None:
-    for item in basket.items.values():
-        if item.item_type == ItemType.saas_package:
-            enrollment_data = EnrollmentCreateSchema(
-                user_id=basket.user_id,
-                bundles=item.bundles,
-                price=item.unit_price,
-                invoice_id=basket.invoice_id,
-                # start_at=,
-                duration=item.plan_duration,
-                status="active",
-                acquisition_type="purchased",
-            )
-            logging.info("%s", enrollment_data)
-            async with httpx.AsyncClient() as client:
-                enrollment = await client.post(
-                    url=f"{tenant_id}{Settings.base_path}/enrollments/",
-                    headers={
-                        "Authorization": f"Bearer {await tenant_id.get_access_token()}",
-                        "Accept-Encoding": "identity",
-                    },
-                    json=enrollment_data.model_dump(mode="json"),
-                )
-            enrollment = EnrollmentSchema(**enrollment)
+async def create_saas_enrollment(
+    client: AccountingClient, basket: Basket, item: BasketItemSchema
+) -> EnrollmentSchema | None:
+    if item.item_type != ItemType.saas_package:
+        return None
+    enrollment_data = EnrollmentCreateSchema(
+        user_id=basket.user_id,
+        bundles=item.bundles,
+        price=item.unit_price,
+        invoice_id=basket.invoice_id,
+        # start_at=,
+        duration=item.plan_duration,
+        status="active",
+        acquisition_type="purchased",
+    )
+    logging.info("enrollment_data %s", enrollment_data)
+    enrollment_response = await client.post(
+        url=f"{Settings.core_url}/api/saas/v1/enrollments",
+        json=enrollment_data.model_dump(mode="json"),
+    )
+    enrollment_response.raise_for_status()
+    enrollment = EnrollmentSchema.model_validate(enrollment_response.json())
+    return enrollment
+
+
+async def purchase_basket_saas(
+    basket: Basket, tenant_id: str
+) -> list[EnrollmentSchema]:
+    try:
+        async with AccountingClient(tenant_id) as client:
+            await client.get_token("create:finance/saas/enrollment")
+            enrollments = await asyncio.gather(*[
+                create_saas_enrollment(client, basket, item)
+                for item in basket.items.values()
+            ])
+            return [enrollment for enrollment in enrollments if enrollment]
+    except Exception:
+        logging.exception("Error purchasing basket saas")
+        raise
 
 
 async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> Basket:
@@ -210,3 +197,11 @@ async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> 
     await voucher.save()
 
     return basket
+
+
+async def validate_basket(basket: Basket) -> None:
+    payment = await Payment.get_item(
+        uid=basket.payment_id, tenant_id=basket.tenant_id, user_id=basket.user_id
+    )
+    if payment.status != PaymentStatus.SUCCESS:
+        raise BaseHTTPException(400, "invalid_payment", "Payment is not successful")

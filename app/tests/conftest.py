@@ -1,6 +1,6 @@
 import logging
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 
 import httpx
 import pytest
@@ -11,7 +11,6 @@ from fastapi_mongo_base.utils.basic import get_all_subclasses
 
 from server.config import Settings
 from server.server import app as fastapi_app
-from tests.constants import StaticData
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -25,7 +24,7 @@ def setup_debugpy() -> None:
 
 
 @pytest.fixture(scope="session")
-def mongo_client() -> AsyncGenerator[object]:
+def mongo_client() -> Generator[object]:
     from mongomock_motor import AsyncMongoMockClient
 
     mongo_client = AsyncMongoMockClient()
@@ -34,9 +33,9 @@ def mongo_client() -> AsyncGenerator[object]:
 
 # Async setup function to initialize the database with Beanie
 async def init_db(mongo_client: object) -> None:
-    database = mongo_client.get_database("test_db")
+    database = mongo_client.get_database("test_db")  # type: ignore
     await init_beanie(
-        database=database,
+        database=database,  # type: ignore
         document_models=get_all_subclasses(base_mongo_models.BaseEntity),
     )
 
@@ -71,8 +70,3 @@ async def authenticated_client(
         headers={"x-api-key": os.getenv("API_KEY")},
     ) as ac:
         yield ac
-
-
-@pytest.fixture(scope="session")
-def constants() -> StaticData:
-    return StaticData()

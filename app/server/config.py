@@ -14,9 +14,9 @@ dotenv.load_dotenv()
 class Settings(config.Settings):
     """Server config settings."""
 
-    project_name: str = os.getenv("PROJECT_NAME")
     base_dir: Path = Path(__file__).resolve().parent.parent
-    base_path: str = "/api/basket/v1"
+    base_path: str = "/api/shop/v1"
+    core_url: str = os.getenv("CORE_URL", "https://app.uln.me")
 
     coverage_dir: Path = base_dir / "htmlcov"
     currency: str = "IRR"

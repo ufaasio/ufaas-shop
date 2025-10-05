@@ -1,7 +1,7 @@
 from decimal import Decimal
-from typing import ClassVar
 
 from fastapi_mongo_base.models import TenantUserEntity
+from pydantic import Field
 
 from .schemas import (
     BasketDataSchema,
@@ -12,7 +12,7 @@ from .schemas import (
 
 
 class Basket(BasketDataSchema, TenantUserEntity):
-    items: ClassVar[dict[str, BasketItemSchema]] = {}
+    items: dict[str, BasketItemSchema] = Field(default_factory=dict)
 
     @property
     def subtotal(self) -> Decimal:
@@ -33,11 +33,11 @@ class Basket(BasketDataSchema, TenantUserEntity):
         return f"basket id = {self.uid} - total price = {self.subtotal}"
 
     async def add_basket_item(
-        self, item: BasketItemSchema, single: bool = False
+        self, item: BasketItemSchema, exclusive: bool = False
     ) -> None:
         item_dict = item.model_dump(exclude=["uid", "quantity"])
 
-        if single:
+        if exclusive:
             self.items.clear()
 
         for existing_item in self.items.values():
