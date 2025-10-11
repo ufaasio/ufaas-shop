@@ -8,14 +8,15 @@ from ufaas.services import AccountingClient
 
 from apps.tenant.models import Tenant
 from server.config import Settings
-from utils.ipg import create_purchase, get_purchase_ipg_url
-
-from .models import Payment
-from .schemas import (
+from utils.ipg import (
     IPGPurchaseSchema,
     PurchaseSchema,
     PurchaseStatus,
+    create_purchase,
+    get_purchase_ipg_url,
 )
+
+from .models import Payment
 
 
 async def payments_options(payment: Payment) -> list[str]:
@@ -68,7 +69,7 @@ async def start_payment(
     )
     logging.info("IPGPurchaseSchema: %s", ipg_schema)
 
-    purchase = await create_purchase(tenant_id, ipg, ipg_schema)
+    purchase: PurchaseSchema = await create_purchase(tenant_id, ipg, ipg_schema)
     payment.tries[purchase.uid] = purchase
     payment.status = PurchaseStatus.PENDING
     await payment.save()

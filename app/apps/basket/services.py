@@ -7,7 +7,7 @@ from ufaas.services import AccountingClient
 from apps.payment.models import Payment, PaymentStatus
 from apps.tenant.models import Tenant
 from server.config import Settings
-from utils.saas import EnrollmentCreateSchema, EnrollmentSchema
+from utils.saas import AcquisitionType, EnrollmentCreateSchema, EnrollmentSchema
 from utils.wallets import get_or_create_user_wallet
 
 from .models import Basket
@@ -22,7 +22,7 @@ from .schemas import (
 # from ufaas.apps.saas.schemas import EnrollmentCreateSchema, EnrollmentSchema
 
 
-async def reserve_basket(basket: Basket, *, save: bool = True) -> None:
+async def reserve_basket(basket: Basket, *, save: bool = True) -> Basket:
     reserve_tasks = [item.reserve_product() for item in basket.items.values()]
     asyncio.gather(*reserve_tasks)
     basket.status = BasketStatusEnum.reserved
@@ -31,7 +31,7 @@ async def reserve_basket(basket: Basket, *, save: bool = True) -> None:
     return basket
 
 
-async def buy_basket(basket: Basket, *, save: bool = True) -> None:
+async def buy_basket(basket: Basket, *, save: bool = True) -> Basket:
     buy_tasks = [item.buy_product() for item in basket.items.values()]
     asyncio.gather(*buy_tasks)
     basket.status = BasketStatusEnum.paid
@@ -41,7 +41,7 @@ async def buy_basket(basket: Basket, *, save: bool = True) -> None:
     return basket
 
 
-async def cancel_basket(basket: Basket, *, save: bool = True) -> None:
+async def cancel_basket(basket: Basket, *, save: bool = True) -> Basket:
     release_tasks = [item.release_product() for item in basket.items.values()]
     await asyncio.gather(*release_tasks)
     basket.status = BasketStatusEnum.cancelled
@@ -85,6 +85,8 @@ async def create_checkout_basket_url(
     callback_url: str | None = None,
 ) -> str:
     if basket.status in [BasketStatusEnum.locked, BasketStatusEnum.reserved]:
+        if not basket.payment_detail_url:
+            raise BaseHTTPException(400, "invalid_payment", "Payment not found")
         return basket.payment_detail_url
     if basket.status != BasketStatusEnum.active:
         raise BaseHTTPException(
@@ -108,7 +110,7 @@ async def create_checkout_basket_url(
 async def create_saas_enrollment(
     client: AccountingClient, basket: Basket, item: BasketItemSchema
 ) -> EnrollmentSchema | None:
-    if item.item_type != ItemType.saas_package:
+    if item.item_type != ItemType.saas_package or not item.bundles:
         return None
     enrollment_data = EnrollmentCreateSchema(
         user_id=basket.user_id,
@@ -118,7 +120,7 @@ async def create_saas_enrollment(
         # start_at=,
         duration=item.plan_duration,
         status="active",
-        acquisition_type="purchased",
+        acquisition_type=AcquisitionType.purchased,
     )
     logging.info("enrollment_data %s", enrollment_data)
     enrollment_response = await client.post(
@@ -200,8 +202,14 @@ async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> 
 
 
 async def validate_basket(basket: Basket) -> None:
+    if not basket.payment_id:
+        raise BaseHTTPException(400, "invalid_payment", "Payment not found")
+
     payment = await Payment.get_item(
         uid=basket.payment_id, tenant_id=basket.tenant_id, user_id=basket.user_id
     )
+
+    if payment is None:
+        raise BaseHTTPException(404, "invalid_payment", "Payment not found")
     if payment.status != PaymentStatus.SUCCESS:
         raise BaseHTTPException(400, "invalid_payment", "Payment is not successful")

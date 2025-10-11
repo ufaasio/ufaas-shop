@@ -15,8 +15,9 @@ COPY --from=fast-uv /usr/local/lib/python3.13/site-packages /usr/local/lib/pytho
 
 WORKDIR /app
 
-RUN adduser --disabled-password --gecos '' user \
-    && mkdir /app/logs \
+RUN addgroup --system --gid 1000 user \
+    && adduser  --system --uid 1000 --ingroup user --disabled-password --gecos '' user \
+    && mkdir -p /app/logs \
     && chown -R user:user /app/logs
 
 USER user

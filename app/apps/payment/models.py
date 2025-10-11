@@ -37,6 +37,7 @@ class Payment(PaymentSchema, TenantUserEntity):
         self.verified_at = datetime.now(timezone.tz)
         if save:
             return await self.save()
+        return self
 
     async def fail_purchase(self, uid: str, *, save: bool = True) -> Self:
         purchase_trial = self.tries.get(uid)
@@ -46,6 +47,7 @@ class Payment(PaymentSchema, TenantUserEntity):
             self.status = PaymentStatus.FAILED
         if save:
             return await self.save()
+        return self
 
     @property
     def is_successful(self) -> bool:

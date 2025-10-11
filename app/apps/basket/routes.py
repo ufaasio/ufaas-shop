@@ -90,8 +90,8 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
 
     async def get_or_create_for_user(
         self,
-        user_id: str | None = None,
-        tenant_id: str | None = None,
+        user_id: str,
+        tenant_id: str,
         callback_url: str | None = None,
         **kwargs: object,
     ) -> Basket:
@@ -277,11 +277,17 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         return RedirectResponse(url=redirect_dict.redirect_url)
 
     async def validate_url(self, request: Request, uid: str) -> RedirectUrlSchema:
-        await self.get_user(request)
-        basket: Basket = await Basket.get_by_uid(uid)
+        # await self.get_user(request)
+        basket = await Basket.get_by_uid(uid)
+        if not basket:
+            raise BaseHTTPException(404, "basket_not_found", "Basket not found")
         await validate_basket(basket)
         await buy_basket(basket)
-        redirect_url = add_query_params(basket.callback_url, request.query_params)
+        if not basket.callback_url:
+            raise BaseHTTPException(
+                400, "invalid_callback_url", "Callback URL not found"
+            )
+        redirect_url = add_query_params(basket.callback_url, dict(request.query_params))
 
         return RedirectUrlSchema(redirect_url=redirect_url)
 

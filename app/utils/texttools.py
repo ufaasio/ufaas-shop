@@ -25,7 +25,7 @@ def is_valid_url(url: str) -> bool:
     return all([parsed_url.scheme, parsed_url.netloc])
 
 
-def add_query_params(url: str, new_params: dict) -> str:
+def add_query_params(url: str, new_params: dict[str, str]) -> str:
     parsed = urlparse(url)
     existing_params = parse_qs(parsed.query)
     flat_params = {k: v[0] for k, v in existing_params.items()}

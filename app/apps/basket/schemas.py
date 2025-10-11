@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from apps.product.models import Product
 from apps.product.schemas import ItemType
 from server.config import Settings
+from utils.currency import Currency
 
 
 class DiscountSchema(BaseModel):
@@ -132,7 +133,7 @@ class BasketDataSchema(TenantUserEntitySchema):
     )
     callback_url: str | None = Field(None, description="Callback URL for the basket")
 
-    currency: str = Settings.currency
+    currency: Currency = Currency(Settings.currency)
 
     checkout_at: datetime | None = None
     payment_id: str | None = None

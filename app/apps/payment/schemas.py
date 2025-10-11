@@ -1,10 +1,8 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-from enum import StrEnum
 from typing import Literal, Self
 
 from fastapi_mongo_base.schemas import (
-    BaseEntitySchema,
     TenantUserEntitySchema,
 )
 from fastapi_mongo_base.utils import bsontools, timezone
@@ -18,44 +16,9 @@ from pydantic import (
 from ufaas.wallet import WalletSchema
 
 from utils.currency import Currency
-
-
-class PurchaseStatus(StrEnum):
-    INIT = "INIT"
-    PENDING = "PENDING"
-    FAILED = "FAILED"
-    SUCCESS = "SUCCESS"
-    REFUNDED = "REFUNDED"
-
-    def is_open(self) -> bool:
-        return self in [PurchaseStatus.INIT, PurchaseStatus.PENDING]
-
+from utils.ipg import PurchaseSchema, PurchaseStatus
 
 PaymentStatus = PurchaseStatus
-
-
-class PurchaseSchema(BaseEntitySchema):
-    ipg: str
-    user_id: str | None = None
-
-    phone: str | None = None
-
-    status: PurchaseStatus = PurchaseStatus.INIT
-
-    failure_reason: str | None = None
-    verified_at: datetime | None = None
-
-
-class IPGPurchaseSchema(BaseModel):
-    user_id: str | None = None
-    wallet_id: str
-    amount: Decimal
-
-    phone: str | None = None
-    description: str  # | None = None
-    callback_url: str
-
-    status: PurchaseStatus = PurchaseStatus.INIT
 
 
 class PaymentCreateSchema(BaseModel):
@@ -105,7 +68,7 @@ class PaymentSchema(PaymentCreateSchema, TenantUserEntitySchema):
     tries: dict[str, PurchaseSchema] = Field(default_factory=dict)
     verified_at: datetime | None = None
 
-    original_amount: Decimal = 0
+    original_amount: Decimal = Decimal(0)
 
     duration: int = 60 * 60  # in seconds
 

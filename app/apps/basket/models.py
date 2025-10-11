@@ -16,9 +16,11 @@ class Basket(BasketDataSchema, TenantUserEntity):
 
     @property
     def subtotal(self) -> Decimal:
-        total = sum(
-            item.price * item.exchange_fee(self.currency)
-            for item in self.items.values()
+        total = Decimal(
+            sum(
+                item.price * item.exchange_fee(self.currency)
+                for item in self.items.values()
+            )
         )
         return total
 
@@ -75,9 +77,11 @@ class Basket(BasketDataSchema, TenantUserEntity):
 
     @property
     def detail(self) -> BasketDetailSchema:
-        return BasketDetailSchema(
-            **self.model_dump(exclude={"items"}),
-            items=list(self.items.values()),
-            amount=self.amount,
-            subtotal=self.subtotal,
+        return BasketDetailSchema.model_validate(
+            self.model_dump(exclude={"items"})
+            | {
+                "items": list(self.items.values()),
+                "amount": self.amount,
+                "subtotal": self.subtotal,
+            }
         )

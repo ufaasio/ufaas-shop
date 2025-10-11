@@ -6,11 +6,14 @@ from fastapi.responses import RedirectResponse
 from fastapi_mongo_base.core.exceptions import BaseHTTPException
 from fastapi_mongo_base.utils import usso_routes
 from ufaas.services import AccountingClient
+from usso import UserData
 
 from apps.tenant.models import Tenant
 from server.config import Settings
+from utils.currency import Currency
 from utils.schemas import RedirectUrlSchema
 from utils.texttools import add_query_params
+from utils.usso import get_usso
 from utils.wallets import get_wallets
 
 from .models import Payment
@@ -31,9 +34,9 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
     model = Payment
     schema = PaymentSchema
 
-    # async def get_user(self, request: Request, **kwargs: object) -> UserData:
-    #     usso = utils.usso.get_usso()
-    #     return usso(request)
+    def get_user_or_none(self, request: Request, **kwargs: object) -> UserData | None:
+        usso = get_usso(raise_exception=False)
+        return usso(request)
 
     def config_schemas(self, schema: type, **kwargs: object) -> None:
         super().config_schemas(schema)
@@ -90,7 +93,7 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
         tenant = await Tenant.get_by_tenant_id(user.tenant_id)
 
         if "currency" not in data.model_fields_set:
-            data.currency = Settings.currency
+            data.currency = Currency(Settings.currency)
 
         if not data.available_ipgs:
             data.available_ipgs = tenant.ipgs
@@ -106,7 +109,7 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
             tenant_id=user.tenant_id,
             user_id=data.user_id or user.user_id,
             **data.model_dump(exclude=["user_id"]),
-        )
+        )  # type: ignore[missing-argument]
         await item.save()
         return item
 
@@ -118,11 +121,13 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
         wallet_id: str,
         amount: Decimal,
         description: str,
+        user_id: str,
         callback_url: str,
     ) -> dict:
         payment: Payment = await self.create_item(
             request,
             PaymentCreateSchema(
+                user_id=user_id,
                 wallet_id=wallet_id,
                 amount=amount,
                 description=description,
@@ -138,15 +143,17 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
         ipg: str | None = None,
         amount: Decimal | None = None,
     ) -> RedirectUrlSchema:
-        user = await self.get_user(request)
-        item: Payment = await self.get_item(uid, tenant_id=user.tenant_id)
+        # user = await self.get_user(request)
+        # item: Payment = await self.get_item(uid, tenant_id=user.tenant_id)
+        user = self.get_user_or_none(request)
+        item = await self.model.get_by_uid(uid)
 
         if ipg is None:
             ipg = item.available_ipgs[0]
 
         start_data = await start_payment(
             payment=item,
-            tenant_id=user.tenant_id,
+            tenant_id=item.tenant_id,
             ipg=ipg,
             amount=amount,
             user_id=item.user_id,
@@ -156,7 +163,8 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
         if start_data["status"]:
             return RedirectUrlSchema(redirect_url=start_data["url"])
 
-        raise BaseHTTPException(status_code=400, **start_data)
+        error = start_data.pop("error")
+        raise BaseHTTPException(status_code=400, error=error, **start_data)
 
     async def start_payment(
         self,
@@ -173,12 +181,10 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
         request: Request,
         uid: str,
     ) -> RedirectResponse:
-        user = await self.get_user(request)
-
-        item: Payment = await self.get_item(uid, tenant_id=user.tenant_id)
+        item: Payment = await self.model.get_by_uid(uid)
         payment_status = item.status
 
-        payment: Payment = await verify_payment(tenant_id=user.tenant_id, payment=item)
+        payment: Payment = await verify_payment(tenant_id=item.tenant_id, payment=item)
         payment_redirect_url = add_query_params(
             payment.callback_url,
             {"payment_id": payment.uid, "status": payment.status.value},

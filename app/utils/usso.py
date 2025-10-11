@@ -4,7 +4,7 @@ from usso import APIHeaderConfig, AuthConfig
 from usso.integrations.fastapi import USSOAuthentication
 
 
-def get_usso() -> USSOAuthentication:
+def get_usso(raise_exception: bool = False) -> USSOAuthentication:
     base_usso_url = os.getenv("BASE_USSO_URL") or "https://usso.uln.me"
 
     usso = USSOAuthentication(
@@ -16,6 +16,6 @@ def get_usso() -> USSOAuthentication:
             ),
         ),
         from_base_usso_url=base_usso_url,
-        raise_exception=False,
+        raise_exception=raise_exception,
     )
     return usso
