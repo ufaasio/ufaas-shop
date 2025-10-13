@@ -136,7 +136,7 @@ class BasketDataSchema(TenantUserEntitySchema):
     currency: Currency = Currency(Settings.currency)
 
     checkout_at: datetime | None = None
-    payment_id: str | None = None
+    purchase_id: str | None = None
     invoice_id: str | None = None
 
     discount: DiscountSchema | None = None
@@ -147,10 +147,10 @@ class BasketDataSchema(TenantUserEntitySchema):
         return self.status == "active"
 
     @property
-    def payment_detail_url(self) -> str | None:
-        if not self.payment_id:
+    def purchase_detail_url(self) -> str | None:
+        if not self.purchase_id:
             return None
-        return f"{Settings.core_url}{Settings.base_path}/payments/{self.payment_id}"
+        return f"{Settings.core_url}{Settings.base_path}/purchases/{self.purchase_id}"
 
 
 class BasketDetailSchema(BasketDataSchema):
@@ -186,7 +186,7 @@ class BasketUpdateSchema(BaseModel):
     status: Literal["active", "inactive", "paid", "reserve", "cancel"] | None = None
     items: list[BasketItemSchema] | None = None
 
-    payment_detail_url: str | None = None
+    purchase_detail_url: str | None = None
     meta_data: dict[str, object] | None = None
 
     checkout_at: datetime | None = None

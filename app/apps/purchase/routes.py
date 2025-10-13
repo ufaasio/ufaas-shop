@@ -16,23 +16,23 @@ from utils.texttools import add_query_params
 from utils.usso import get_usso
 from utils.wallets import get_wallets
 
-from .models import Payment
+from .models import Purchase
 from .schemas import (
-    PaymentCreateSchema,
-    PaymentRetrieveSchema,
-    PaymentSchema,
-    PaymentStatus,
+    PurchaseCreateSchema,
+    PurchaseRetrieveSchema,
+    PurchaseSchema,
+    PurchaseStatus,
 )
 from .services import (
     create_proposal,
-    start_payment,
-    verify_payment,
+    start_purchase,
+    verify_purchase,
 )
 
 
-class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
-    model = Payment
-    schema = PaymentSchema
+class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
+    model = Purchase
+    schema = PurchaseSchema
 
     def get_user_or_none(self, request: Request, **kwargs: object) -> UserData | None:
         usso = get_usso(raise_exception=False)
@@ -40,43 +40,43 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
 
     def config_schemas(self, schema: type, **kwargs: object) -> None:
         super().config_schemas(schema)
-        self.create_request_schema = PaymentCreateSchema
-        self.retrieve_response_schema = PaymentRetrieveSchema
+        self.create_request_schema = PurchaseCreateSchema
+        self.retrieve_response_schema = PurchaseRetrieveSchema
 
     def config_routes(self, **kwargs: object) -> None:
         super().config_routes(update_route=False, delete_route=False, **kwargs)
         self.router.add_api_route(
             "/start",
-            self.start_direct_payment,
+            self.start_direct_purchase,
             methods=["GET"],
             # response_model=self.retrieve_response_schema,
         )
         self.router.add_api_route(
             "/{uid}/start",
-            self.start_payment,
+            self.start_purchase,
             methods=["GET"],
             # response_model=self.retrieve_response_schema,
         )
         self.router.add_api_route(
             "/{uid}/start",
-            self.start_payment_url,
+            self.start_purchase_url,
             methods=["POST"],
             response_model=RedirectUrlSchema,
         )
         self.router.add_api_route(
             "/{uid}/verify",
-            self.verify_payment,
+            self.verify_purchase,
             methods=["GET"],
         )
         self.router.add_api_route(
             "/{uid}/verify",
-            self.verify_payment,
+            self.verify_purchase,
             methods=["POST"],
         )
 
-    async def retrieve_item(self, request: Request, uid: str) -> PaymentRetrieveSchema:
+    async def retrieve_item(self, request: Request, uid: str) -> PurchaseRetrieveSchema:
         user = await self.get_user(request)
-        item: Payment = await self.get_item(uid, tenant_id=user.tenant_id)
+        item: Purchase = await self.get_item(uid, tenant_id=user.tenant_id)
         if user.user_id:
             async with AccountingClient(user.tenant_id) as client:
                 wallets = await get_wallets(client, user.user_id)
@@ -87,8 +87,8 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
         )
 
     async def create_item(
-        self, request: Request, data: PaymentCreateSchema
-    ) -> PaymentSchema:
+        self, request: Request, data: PurchaseCreateSchema
+    ) -> PurchaseSchema:
         user = await self.get_user(request)
         tenant = await Tenant.get_by_tenant_id(user.tenant_id)
 
@@ -105,7 +105,7 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
                 filter_data=data.model_dump(exclude_none=True),
             )
 
-        item = Payment(
+        item = Purchase(
             tenant_id=user.tenant_id,
             user_id=data.user_id or user.user_id,
             **data.model_dump(exclude=["user_id"]),
@@ -115,7 +115,7 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
 
         # return await super().create_item(request, item.model_dump())
 
-    async def start_direct_payment(
+    async def start_direct_purchase(
         self,
         request: Request,
         wallet_id: str,
@@ -124,9 +124,9 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
         user_id: str,
         callback_url: str,
     ) -> dict:
-        payment: Payment = await self.create_item(
+        purchase: Purchase = await self.create_item(
             request,
-            PaymentCreateSchema(
+            PurchaseCreateSchema(
                 user_id=user_id,
                 wallet_id=wallet_id,
                 amount=amount,
@@ -134,9 +134,9 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
                 callback_url=callback_url,
             ),
         )
-        return await self.start_payment(request, payment.uid)
+        return await self.start_purchase(request, purchase.uid)
 
-    async def start_payment_url(
+    async def start_purchase_url(
         self,
         request: Request,
         uid: str,
@@ -144,15 +144,15 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
         amount: Decimal | None = None,
     ) -> RedirectUrlSchema:
         # user = await self.get_user(request)
-        # item: Payment = await self.get_item(uid, tenant_id=user.tenant_id)
+        # item: Purchase = await self.get_item(uid, tenant_id=user.tenant_id)
         user = self.get_user_or_none(request)
         item = await self.model.get_by_uid(uid)
 
         if ipg is None:
             ipg = item.available_ipgs[0]
 
-        start_data = await start_payment(
-            payment=item,
+        start_data = await start_purchase(
+            purchase=item,
             tenant_id=item.tenant_id,
             ipg=ipg,
             amount=amount,
@@ -166,41 +166,43 @@ class PaymentRouter(usso_routes.AbstractTenantUSSORouter):
         error = start_data.pop("error")
         raise BaseHTTPException(status_code=400, error=error, **start_data)
 
-    async def start_payment(
+    async def start_purchase(
         self,
         request: Request,
         uid: str,
         ipg: str | None = None,
         amount: Decimal | None = None,
     ) -> RedirectResponse:
-        redirect_dict = await self.start_payment_url(request, uid, ipg, amount)
+        redirect_dict = await self.start_purchase_url(request, uid, ipg, amount)
         return RedirectResponse(url=redirect_dict.redirect_url)
 
-    async def verify_payment(
+    async def verify_purchase(
         self,
         request: Request,
         uid: str,
     ) -> RedirectResponse:
-        item: Payment = await self.model.get_by_uid(uid)
-        payment_status = item.status
+        item: Purchase = await self.model.get_by_uid(uid)
+        purchase_status = item.status
 
-        payment: Payment = await verify_payment(tenant_id=item.tenant_id, payment=item)
-        payment_redirect_url = add_query_params(
-            payment.callback_url,
-            {"payment_id": payment.uid, "status": payment.status.value},
+        purchase: Purchase = await verify_purchase(
+            tenant_id=item.tenant_id, purchase=item
+        )
+        purchase_redirect_url = add_query_params(
+            purchase.callback_url,
+            {"purchase_id": purchase.uid, "status": purchase.status.value},
         )
 
-        if payment.status == PaymentStatus.PENDING:
-            return RedirectResponse(url=payment_redirect_url, status_code=303)
+        if purchase.status == PurchaseStatus.PENDING:
+            return RedirectResponse(url=purchase_redirect_url, status_code=303)
             # return proper response
-            return payment
-        if payment.status == PaymentStatus.SUCCESS:
-            if payment_status == PaymentStatus.PENDING:
-                await create_proposal(payment)
+            return purchase
+        if purchase.status == PurchaseStatus.SUCCESS:
+            if purchase_status == PurchaseStatus.PENDING:
+                await create_proposal(purchase)
             else:
-                logging.info("payment was not pending %s", payment_status)
+                logging.info("purchase was not pending %s", purchase_status)
 
-        return RedirectResponse(url=payment_redirect_url, status_code=303)
+        return RedirectResponse(url=purchase_redirect_url, status_code=303)
 
 
-router = PaymentRouter().router
+router = PurchaseRouter().router

@@ -16,12 +16,12 @@ from pydantic import (
 from ufaas.wallet import WalletSchema
 
 from utils.currency import Currency
-from utils.ipg import PurchaseSchema, PurchaseStatus
+from utils.ipg import PaymentSchema, PaymentStatus
 
-PaymentStatus = PurchaseStatus
+PurchaseStatus = PaymentStatus
 
 
-class PaymentCreateSchema(BaseModel):
+class PurchaseCreateSchema(BaseModel):
     user_id: str  # | None = None
     wallet_id: str  # | None = None
     basket_id: str | None = None
@@ -59,13 +59,13 @@ class PaymentCreateSchema(BaseModel):
         return value
 
 
-class PaymentUpdateSchema(BaseModel):
+class PurchaseUpdateSchema(BaseModel):
     voucher_code: str | None = None
 
 
-class PaymentSchema(PaymentCreateSchema, TenantUserEntitySchema):
-    status: PaymentStatus = PaymentStatus.INIT
-    tries: dict[str, PurchaseSchema] = Field(default_factory=dict)
+class PurchaseSchema(PurchaseCreateSchema, TenantUserEntitySchema):
+    status: PurchaseStatus = PurchaseStatus.INIT
+    tries: dict[str, PaymentSchema] = Field(default_factory=dict)
     verified_at: datetime | None = None
 
     original_amount: Decimal = Decimal(0)
@@ -97,15 +97,15 @@ class PaymentSchema(PaymentCreateSchema, TenantUserEntitySchema):
 
     @field_serializer("status")
     @classmethod
-    def serialize_status(cls, value: PaymentStatus | str | object) -> str:
-        if isinstance(value, PaymentStatus):
+    def serialize_status(cls, value: PurchaseStatus | str | object) -> str:
+        if isinstance(value, PurchaseStatus):
             return value.value
         if isinstance(value, str):
             return value
         return str(value)
 
 
-class PaymentRetrieveSchema(PaymentSchema):
+class PurchaseRetrieveSchema(PurchaseSchema):
     ipgs: list[str] | None = None
     wallets: list[WalletSchema] | WalletSchema | None = None
 
@@ -125,7 +125,7 @@ class ProposalCreateSchema(BaseModel):
     meta_data: dict[str, object] | None = None
 
 
-class PaymentStartSchema(BaseModel):
+class PurchaseStartSchema(BaseModel):
     name: str
     amount: Decimal
     currency: str
