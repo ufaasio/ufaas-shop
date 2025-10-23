@@ -171,9 +171,9 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         return basket.detail
 
     async def delete_item(self, request: Request, uid: str) -> BasketDetailSchema:
-        basket: Basket = await super(usso_routes.AbstractTenantUSSORouter).delete_item(
-            request, uid
-        )
+        basket: Basket = await super(
+            usso_routes.AbstractTenantUSSORouter, self
+        ).delete_item(request, uid)
         return basket.detail
 
     async def purchasse_exclusive_item(

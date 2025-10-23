@@ -4,7 +4,7 @@ import logging
 from fastapi_mongo_base.core.exceptions import BaseHTTPException
 from ufaas.services import AccountingClient
 
-from apps.payment.models import Payment, PaymentStatus
+from apps.purchase.models import Purchase, PurchaseStatus
 from apps.tenant.models import Tenant
 from server.config import Settings
 from utils.saas import AcquisitionType, EnrollmentCreateSchema, EnrollmentSchema
@@ -52,7 +52,7 @@ async def cancel_basket(basket: Basket, *, save: bool = True) -> Basket:
 
 async def create_basket_payment(
     basket: Basket, callback_url: str | None = None
-) -> Payment:
+) -> Purchase:
     async with AccountingClient(basket.tenant_id) as client:
         await client.get_token([
             "create:finance/accounting/wallet",
@@ -64,7 +64,7 @@ async def create_basket_payment(
         callback_url = (
             f"{Settings.core_url}{Settings.base_path}/baskets/{basket.uid}/validate"
         )
-        payment = await Payment(
+        payment = await Purchase(
             tenant_id=basket.tenant_id,
             user_id=basket.user_id,
             wallet_id=wallet.uid,
@@ -205,11 +205,11 @@ async def validate_basket(basket: Basket) -> None:
     if not basket.payment_id:
         raise BaseHTTPException(400, "invalid_payment", "Payment not found")
 
-    payment = await Payment.get_item(
+    payment = await Purchase.get_item(
         uid=basket.payment_id, tenant_id=basket.tenant_id, user_id=basket.user_id
     )
 
     if payment is None:
         raise BaseHTTPException(404, "invalid_payment", "Payment not found")
-    if payment.status != PaymentStatus.SUCCESS:
+    if payment.status != PurchaseStatus.SUCCESS:
         raise BaseHTTPException(400, "invalid_payment", "Payment is not successful")
