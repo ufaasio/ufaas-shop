@@ -6,8 +6,8 @@ import httpx
 import pytest
 import pytest_asyncio
 from beanie import init_beanie
-from fastapi_mongo_base import models as base_mongo_models
-from fastapi_mongo_base.utils.basic import get_all_subclasses
+from fastapi_mongo_base import models
+from fastapi_mongo_base.utils import basic
 
 from server.config import Settings
 from server.server import app as fastapi_app
@@ -36,7 +36,7 @@ async def init_db(mongo_client: object) -> None:
     database = mongo_client.get_database("test_db")  # type: ignore
     await init_beanie(
         database=database,  # type: ignore
-        document_models=get_all_subclasses(base_mongo_models.BaseEntity),
+        document_models=basic.get_all_subclasses(models.BaseEntity),
     )
 
 
