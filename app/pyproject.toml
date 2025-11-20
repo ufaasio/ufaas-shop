@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "beanie>=2.0.0",
-    "fastapi-mongo-base>=1.0.34",
+    "fastapi-mongo-base>=1.0.42",
     "httpx>=0.28.1",
     "python-dotenv>=1.1.1",
     "ufaas>=0.3.8",
