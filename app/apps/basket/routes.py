@@ -2,7 +2,7 @@ import logging
 
 from fastapi import Query, Request
 from fastapi.responses import RedirectResponse
-from fastapi_mongo_base.core.exceptions import BaseHTTPException
+from fastapi_mongo_base.errors import BadRequestError, BaseHTTPException
 from fastapi_mongo_base.schemas import PaginatedResponse
 from fastapi_mongo_base.utils import usso_routes
 
@@ -222,7 +222,14 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
             **({"callback_url": callback_url} if callback_url else {}),
         )
         if not basket.is_modifiable:
-            raise BaseHTTPException(400, "Basket is not active")
+            raise BadRequestError(
+                error_code="basket_not_active",
+                detail="Basket is not active",
+                message={
+                    "en": "Basket is not active",
+                    "fa": "سبد خرید فعال نیست",
+                },
+            )
         await basket.add_basket_item(await data.get_basket_item(), exclusive=exclusive)
         return basket.detail
 
@@ -238,7 +245,14 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
             uid=uid, user_id=user.user_id, tenant_id=user.tenant_id
         )
         if not basket.is_modifiable:
-            raise BaseHTTPException(400, "Basket is not active")
+            raise BadRequestError(
+                error_code="basket_not_active",
+                detail="Basket is not active",
+                message={
+                    "en": "Basket is not active",
+                    "fa": "سبد خرید فعال نیست",
+                },
+            )
         await basket.update_basket_item(item_uid, data)
         return basket.detail
 

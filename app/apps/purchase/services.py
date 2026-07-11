@@ -2,7 +2,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from fastapi_mongo_base.core.exceptions import BaseHTTPException
+from fastapi_mongo_base.errors import PaymentRequiredError
 from ufaas.proposal import ProposalSchema
 from ufaas.services import AccountingClient
 
@@ -143,13 +143,22 @@ async def create_proposal(purchase: Purchase) -> ProposalSchema | None:
                 available,
                 balance.total if balance else 0,
             )
-            raise BaseHTTPException(
-                status_code=402,
-                error="insufficient_funds",
+            raise PaymentRequiredError(
+                error_code="insufficient_funds",
                 detail=(
                     "Not enough available balance in the wallet: "
                     f"needed={purchase.amount} available={available}"
                 ),
+                message={
+                    "en": (
+                        "Not enough available balance in the wallet: "
+                        f"needed={purchase.amount} available={available}"
+                    ),
+                    "fa": (
+                        "موجودی کافی نیست: "
+                        f"به تعداد={purchase.amount} موجودی={available}"
+                    ),
+                },
             )
 
         tenant = await Tenant.find_one({"tenant_id": purchase.tenant_id})

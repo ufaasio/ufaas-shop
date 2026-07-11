@@ -9,12 +9,12 @@ class TenantRouter(usso_routes.AbstractTenantUSSORouter):
     schema = schemas.TenantSchema
 
     def config_routes(self, **kwargs: object) -> None:
-        super().config_routes(update_route=False, delete_route=False, **kwargs)  # type: ignore
+        super().config_routes(update_route=False, delete_route=False, **kwargs)
 
     async def create_item(
         self,
         request: Request,
-        data: schemas.TenantCreateSchema,  # type: ignore
+        data: schemas.TenantCreateSchema,
     ) -> models.Tenant:
         user = await self.get_user(request)
         await self.authorize(

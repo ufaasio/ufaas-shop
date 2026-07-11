@@ -27,15 +27,14 @@ def setup_debugpy() -> None:
 def mongo_client() -> Generator[object]:
     from mongomock_motor import AsyncMongoMockClient
 
-    mongo_client = AsyncMongoMockClient()
-    yield mongo_client
+    yield AsyncMongoMockClient()
 
 
 # Async setup function to initialize the database with Beanie
 async def init_db(mongo_client: object) -> None:
-    database = mongo_client.get_database("test_db")  # type: ignore
+    database = mongo_client.get_database("test_db")
     await init_beanie(
-        database=database,  # type: ignore
+        database=database,
         document_models=basic.get_all_subclasses(models.BaseEntity),
     )
 

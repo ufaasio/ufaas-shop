@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from fastapi_mongo_base.core.exceptions import BaseHTTPException
+from fastapi_mongo_base.errors import BadRequestError, BaseHTTPException, NotFoundError
 from ufaas.services import AccountingClient
 
 from apps.purchase.models import Purchase, PurchaseStatus
@@ -86,13 +86,23 @@ async def create_checkout_basket_url(
 ) -> str:
     if basket.status in [BasketStatusEnum.locked, BasketStatusEnum.reserved]:
         if not basket.payment_detail_url:
-            raise BaseHTTPException(400, "invalid_payment", "Payment not found")
+            raise BadRequestError(
+                error_code="invalid_payment",
+                detail="Payment not found",
+                message={
+                    "en": "Payment not found",
+                    "fa": "پرداخت یافت نشد",
+                },
+            )
         return basket.payment_detail_url
     if basket.status != BasketStatusEnum.active:
-        raise BaseHTTPException(
-            400,
-            "invalid_status",
-            f"Basket is not active. Basket status: {basket.status.value}",
+        raise BadRequestError(
+            error_code="invalid_status",
+            detail="Basket is not active. Basket status: {basket.status.value}",
+            message={
+                "en": "Basket is not active. Basket status: {basket.status.value}",
+                "fa": "سبد خرید فعال نیست. وضعیت سبد خرید: {basket.status.value}",
+            },
         )
     if callback_url is not None:
         basket.callback_url = callback_url
@@ -182,7 +192,12 @@ async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> 
     if not voucher:
         logging.error("Voucher %s not found for user %s", discount_code, basket.user_id)
         raise BaseHTTPException(
-            404, "invalid_voucher", f"Voucher {discount_code} not found for user"
+            error_code="invalid_voucher",
+            detail=f"Voucher {discount_code} not found for user",
+            message={
+                "en": f"Voucher {discount_code} not found for user",
+                "fa": f"ووچر {discount_code} برای کاربر یافت نشد",
+            },
         )
 
     if voucher.status != VoucherStatus.ACTIVE:
@@ -203,13 +218,34 @@ async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> 
 
 async def validate_basket(basket: Basket) -> None:
     if not basket.payment_id:
-        raise BaseHTTPException(400, "invalid_payment", "Payment not found")
+        raise BadRequestError(
+            error_code="invalid_payment",
+            detail="Payment not found",
+            message={
+                "en": "Payment not found",
+                "fa": "پرداخت یافت نشد",
+            },
+        )
 
     payment = await Purchase.get_item(
         uid=basket.payment_id, tenant_id=basket.tenant_id, user_id=basket.user_id
     )
 
     if payment is None:
-        raise BaseHTTPException(404, "invalid_payment", "Payment not found")
+        raise NotFoundError(
+            error_code="invalid_payment",
+            detail="Payment not found",
+            message={
+                "en": "Payment not found",
+                "fa": "پرداخت یافت نشد",
+            },
+        )
     if payment.status != PurchaseStatus.SUCCESS:
-        raise BaseHTTPException(400, "invalid_payment", "Payment is not successful")
+        raise BadRequestError(
+            error_code="invalid_payment",
+            detail="Payment is not successful",
+            message={
+                "en": "Payment is not successful",
+                "fa": "پرداخت موفق نیست",
+            },
+        )

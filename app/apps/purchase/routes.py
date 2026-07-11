@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from fastapi import Request
 from fastapi.responses import RedirectResponse
-from fastapi_mongo_base.core.exceptions import BaseHTTPException
+from fastapi_mongo_base.errors import BadRequestError
 from fastapi_mongo_base.utils import usso_routes
 from ufaas.services import AccountingClient
 from usso import UserData
@@ -109,7 +109,7 @@ class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
             tenant_id=user.tenant_id,
             user_id=data.user_id or user.user_id,
             **data.model_dump(exclude=["user_id"]),
-        )  # type: ignore[missing-argument]
+        )
         await item.save()
         return item
 
@@ -164,7 +164,15 @@ class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
             return RedirectUrlSchema(redirect_url=start_data["url"])
 
         error = start_data.pop("error")
-        raise BaseHTTPException(status_code=400, error=error, **start_data)
+        raise BadRequestError(
+            error_code="purchase_start_failed",
+            detail=error,
+            message={
+                "en": "Purchase start failed",
+                "fa": "شروع خرید موفق نیست",
+            },
+            **start_data,
+        )
 
     async def start_purchase(
         self,
