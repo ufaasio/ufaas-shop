@@ -90,7 +90,7 @@ async def create_checkout_basket_url(
 ) -> str:
     """Create checkout basket URL."""
     if basket.status in [BasketStatusEnum.locked, BasketStatusEnum.reserved]:
-        if not basket.payment_detail_url:
+        if not basket.purchase_detail_url:
             raise BadRequestError(
                 error_code="invalid_payment",
                 detail="Payment not found",
@@ -99,7 +99,7 @@ async def create_checkout_basket_url(
                     "fa": "پرداخت یافت نشد",
                 },
             )
-        return basket.payment_detail_url
+        return basket.purchase_detail_url
     if basket.status != BasketStatusEnum.active:
         raise BadRequestError(
             error_code="invalid_status",
@@ -116,10 +116,10 @@ async def create_checkout_basket_url(
     await reserve_basket(basket, save=False)
 
     payment = await create_basket_payment(basket, callback_url)
-    basket.payment_id = payment.uid
+    basket.purchase_id = payment.uid
     basket.status = BasketStatusEnum.locked
     await basket.save()
-    return f"{basket.payment_detail_url}/start"
+    return f"{basket.purchase_detail_url}/start"
 
 
 async def create_saas_enrollment(
@@ -226,7 +226,7 @@ async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> 
 
 async def validate_basket(basket: Basket) -> None:
     """Validate basket payment."""
-    if not basket.payment_id:
+    if not basket.purchase_id:
         raise BadRequestError(
             error_code="invalid_payment",
             detail="Payment not found",
@@ -237,7 +237,7 @@ async def validate_basket(basket: Basket) -> None:
         )
 
     payment = await Purchase.get_item(
-        uid=basket.payment_id, tenant_id=basket.tenant_id, user_id=basket.user_id
+        uid=basket.purchase_id, tenant_id=basket.tenant_id, user_id=basket.user_id
     )
 
     if payment is None:
