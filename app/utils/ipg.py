@@ -1,3 +1,5 @@
+"""IPG payment utilities."""
+
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -14,6 +16,8 @@ from server.config import Settings
 
 
 class PaymentStatus(StrEnum):
+    """Payment status enum."""
+
     INIT = "INIT"
     PENDING = "PENDING"
     FAILED = "FAILED"
@@ -21,10 +25,13 @@ class PaymentStatus(StrEnum):
     REFUNDED = "REFUNDED"
 
     def is_open(self) -> bool:
+        """Check if the payment is still open."""
         return self in [PaymentStatus.INIT, PaymentStatus.PENDING]
 
 
 class PaymentSchema(BaseEntitySchema):
+    """Schema for an IPG payment record."""
+
     ipg: str
     user_id: str | None = None
 
@@ -37,6 +44,8 @@ class PaymentSchema(BaseEntitySchema):
 
 
 class IPGPaymentSchema(BaseModel):
+    """Schema for creating an IPG payment request."""
+
     user_id: str | None = None
     wallet_id: str
     amount: Decimal
@@ -49,12 +58,14 @@ class IPGPaymentSchema(BaseModel):
 
 
 def get_payment_ipg_url(ipg: str) -> str:
+    """Get the payment URL for a given IPG provider."""
     return f"{Settings.core_url}/api/{ipg}/v1/payments"
 
 
 async def create_payment(
     tenant_id: str, ipg: str, ipg_schema: IPGPaymentSchema
 ) -> PaymentSchema:
+    """Create a payment via the specified IPG provider."""
     payment_ipg_url = get_payment_ipg_url(ipg)
     async with AccountingClient(tenant_id) as client:
         await client.get_token("create:finance/ipg/payment")

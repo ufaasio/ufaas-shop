@@ -5,26 +5,29 @@ description = "Basket application for managing user baskets"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "beanie>=2.0.0",
-    "fastapi-mongo-base>=1.0.42",
+    "beanie>=2.1.0",
+    "fastapi-mongo-base>=1.5.7",
     "httpx>=0.28.1",
-    "python-dotenv>=1.1.1",
-    "ufaas>=0.3.8",
-    "usso>=0.28.40",
-    "uvicorn>=0.37.0",
+    "python-dotenv>=1.2.2",
+    "ufaas>=0.5.4",
+    "usso>=0.31.6",
+    "uvicorn>=0.51.0",
 ]
 
 [dependency-groups]
 dev = [
-    "beanie<2",
-    "ipython>=9.4.0",
+    # "beanie<2",
+    "ipython>=9.15.0",
     "mongomock-motor>=0.0.36",
-    "mypy>=1.17.0",
-    "pytest>=8.4.1",
-    "pytest-asyncio>=1.1.0",
-    "pytest-cov>=6.2.1",
+    "mypy>=2.2.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "pytest-httpx>=0.36.2",
     "pytest-timeout>=2.4.0",
-    "ruff>=0.12.5",
+    "ruff>=0.15.21",
+    "ty>=0.0.58",
+    "types-aiofiles>=25.1.0.20260518",
 ]
 
 [tool.ruff]
@@ -52,22 +55,20 @@ select = [
     "N",     # naming conventions
     "S",     # security checks
     "ANN",   # type annotation checks
-    "T20", # no print()
-    "C4",  # comprehension: better loops
-    "COM", # enforces trailing commas where needed.
-    "EXE", # executable: executable checking
-    "ISC", # implicit string concatenation
-    "G",   # misuse of logging string interpolation
-    # "D",     # docstrings: docstring checking
-    # "ERA", # remove commented code
-    "RUF", # ruff-specific improvements
+    "T20",   # no print()
+    "C4",    # comprehension: better loops
+    "COM",   # enforces trailing commas where needed.
+    "EXE",   # executable: executable checking
+    "ISC",   # implicit string concatenation
+    "G",     # misuse of logging string interpolation
+    "D",     # docstrings: docstring checking
+    "ERA",   # remove commented code
+    "RUF",   # ruff-specific improvements
 ]
-ignore = ["TRY003", "COM812", "B008"]
+ignore = ["COM812", "B008", "D202", "D203", "D209", "D212", "D413"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["G004", "S101", "S105", "S106", "B017"]
-"server/db.py" = ["TRY"]
-"apps/tenant/messaging/channels/sms.py" = ["ERA001"]
+"tests/*" = ["S101"]
 
 
 [tool.ruff.format]
@@ -80,4 +81,4 @@ check_untyped_defs = false
 disallow_untyped_defs = false
 disable_error_code = ["override"]
 
-[tool.ty]
+[tool.ty.rules]

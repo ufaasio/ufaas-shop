@@ -1,3 +1,5 @@
+"""Product schemas."""
+
 from decimal import Decimal
 from enum import StrEnum
 
@@ -10,11 +12,15 @@ from utils.saas import Bundle
 
 
 class ItemType(StrEnum):
+    """Item type enum."""
+
     saas_package = "saas_package"
     retail_product = "retail_product"
 
 
 class ProductStatus(StrEnum):
+    """Product status enum."""
+
     active = "active"
     inactive = "inactive"
     expired = "expired"
@@ -23,6 +29,8 @@ class ProductStatus(StrEnum):
 
 
 class ProductCreateSchema(BaseModel):
+    """Product create schema."""
+
     name: str
     description: str | None = None
     unit_price: Decimal
@@ -45,21 +53,27 @@ class ProductCreateSchema(BaseModel):
     @field_validator("unit_price", mode="before")
     @classmethod
     def validate_price(cls, value: Decimal) -> Decimal:
+        """Validate unit price."""
         return decimal_amount(value)
 
     @field_validator("stock_quantity", mode="before")
     @classmethod
     def validate_quantity(cls, value: Decimal) -> Decimal:
+        """Validate stock quantity."""
         return decimal_amount(value)
 
 
 class ProductSchema(ProductCreateSchema, TenantUserEntitySchema):
+    """Product schema."""
+
     status: ProductStatus = ProductStatus.active
 
     model_config = ConfigDict(allow_inf_nan=True)
 
 
 class ProductUpdateSchema(BaseModel):
+    """Product update schema."""
+
     name: str | None = None
     description: str | None = None
     unit_price: Decimal | None = None

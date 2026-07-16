@@ -1,3 +1,5 @@
+"""Purchase services."""
+
 import asyncio
 import logging
 from decimal import Decimal
@@ -20,6 +22,7 @@ from .models import Purchase
 
 
 async def purchases_options(purchase: Purchase) -> list[str]:
+    """Get available purchase options."""
     tenant = await Tenant.get_by_tenant_id(purchase.tenant_id)
     return tenant.ipgs
 
@@ -34,6 +37,7 @@ async def start_purchase(
     phone: str | None = None,
     **kwargs: object,
 ) -> dict:
+    """Start a purchase with the given IPG."""
     if purchase.is_overdue():
         await purchase.fail("Purchase is overdue")
         return {
@@ -83,6 +87,7 @@ async def start_purchase(
 async def verify_payment(
     client: AccountingClient, payment_trials: PaymentSchema
 ) -> PaymentStatus:
+    """Verify payment status."""
     if not payment_trials.status.is_open():
         return payment_trials.status
 
@@ -100,9 +105,7 @@ async def verify_payment(
 async def verify_purchase(
     tenant_id: str, purchase: Purchase, **kwargs: object
 ) -> Purchase:
-    # if purchase.status in ["SUCCESS", "FAILED"]:
-    #     return purchase
-
+    """Verify purchase payments."""
     if purchase.amount == 0:
         return await purchase.success(None)
 
@@ -126,6 +129,7 @@ async def verify_purchase(
 
 
 async def create_proposal(purchase: Purchase) -> ProposalSchema | None:
+    """Create a proposal for a successful purchase."""
     tenant_id = purchase.tenant_id
 
     if purchase.amount == 0:

@@ -1,3 +1,5 @@
+"""Health endpoint tests."""
+
 import httpx
 import pytest
 

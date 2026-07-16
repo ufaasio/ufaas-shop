@@ -1,3 +1,5 @@
+"""Application entry point."""
+
 import asyncio
 import logging
 import signal

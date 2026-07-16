@@ -23,6 +23,7 @@ class Settings(config.Settings):
 
     @classmethod
     def get_log_config(cls, console_level: str = "INFO", **kwargs: object) -> dict:
+        """Get the log configuration dict."""
         log_config = {
             "formatters": {
                 "standard": {

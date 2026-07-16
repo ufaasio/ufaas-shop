@@ -1,7 +1,11 @@
+"""Currency enum utilities."""
+
 from enum import StrEnum
 
 
 class Currency(StrEnum):
+    """Supported currencies."""
+
     none = "none"
 
     IRR = "IRR"

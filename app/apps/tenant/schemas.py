@@ -1,8 +1,12 @@
+"""Tenant schemas."""
+
 from fastapi_mongo_base.schemas import TenantScopedEntitySchema
 from pydantic import BaseModel, Field
 
 
 class TenantCreateSchema(BaseModel):
+    """Schema for creating a tenant."""
+
     tenant_id: str | None = None
     name: str
     description: str | None = None
@@ -11,4 +15,4 @@ class TenantCreateSchema(BaseModel):
 
 
 class TenantSchema(TenantCreateSchema, TenantScopedEntitySchema):
-    pass
+    """Tenant schema with entity fields."""

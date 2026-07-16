@@ -1,3 +1,5 @@
+"""Basket routes."""
+
 import logging
 
 from fastapi import Query, Request
@@ -28,10 +30,13 @@ from .services import (
 
 
 class BasketRouter(usso_routes.AbstractTenantUSSORouter):
+    """Basket router."""
+
     model = Basket
     schema = BasketDetailSchema
 
     def config_routes(self, **kwargs: object) -> None:
+        """Configure routes."""
         super().config_routes(**kwargs)
 
         self.router.add_api_route(
@@ -95,6 +100,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         callback_url: str | None = None,
         **kwargs: object,
     ) -> Basket:
+        """Get or create basket for user."""
         items = await Basket.list_items(
             user_id=user_id, tenant_id=tenant_id, status="active", **kwargs
         )
@@ -112,6 +118,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         return item
 
     async def retrieve_item(self, request: Request, uid: str) -> BasketDetailSchema:
+        """Retrieve basket item."""
         basket: Basket = await super().retrieve_item(request, uid)
 
         return basket.detail
@@ -125,6 +132,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         sort_field: str = "created_at",
         sort_direction: int = -1,
     ) -> PaginatedResponse[BasketDetailSchema]:
+        """List basket items."""
         user = await self.get_user(request)
         items, total = await Basket.list_total_combined(
             user_id=user.user_id,
@@ -145,6 +153,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
     async def create_item(
         self, request: Request, data: BasketCreateSchema
     ) -> BasketDetailSchema:
+        """Create basket item."""
         user = await self.get_user(request)
         if data.user_id:
             await self.authorize(
@@ -163,6 +172,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
     async def update_item(
         self, request: Request, uid: str, data: BasketUpdateSchema
     ) -> BasketDetailSchema:
+        """Update basket item."""
         basket: Basket = await super().update_item(
             request, uid, data.model_dump(exclude_unset=True)
         )
@@ -171,6 +181,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         return basket.detail
 
     async def delete_item(self, request: Request, uid: str) -> BasketDetailSchema:
+        """Delete basket item."""
         basket: Basket = await super(
             usso_routes.AbstractTenantUSSORouter, self
         ).delete_item(request, uid)
@@ -183,6 +194,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         user_id: str | None = None,
         callback_url: str | None = None,
     ) -> RedirectUrlSchema:
+        """Purchase exclusive item."""
         try:
             user = await self.get_user(request)
             if user_id:
@@ -213,6 +225,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         exclusive: bool = False,
         callback_url: str | None = None,
     ) -> BasketDetailSchema:
+        """Add item to basket."""
         user = await self.get_user(request)
 
         basket: Basket = await self.get_item(
@@ -240,6 +253,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         item_uid: str,
         data: BasketItemChangeSchema,
     ) -> BasketDetailSchema:
+        """Update basket item."""
         user = await self.get_user(request)
         basket: Basket = await self.get_item(
             uid=uid, user_id=user.user_id, tenant_id=user.tenant_id
@@ -259,6 +273,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
     async def delete_basket_item(
         self, request: Request, uid: str, item_uid: str
     ) -> BasketDetailSchema:
+        """Delete basket item."""
         user = await self.get_user(request)
         basket: Basket = await self.get_item(
             uid=uid, user_id=user.user_id, tenant_id=user.tenant_id
@@ -274,6 +289,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         uid: str,
         callback_url: str | None = None,
     ) -> RedirectUrlSchema:
+        """Get checkout URL."""
         user = await self.get_user(request)
         basket: Basket = await self.get_item(
             uid, user_id=user.user_id, tenant_id=user.tenant_id
@@ -287,11 +303,12 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         uid: str,
         callback_url: str | None = None,
     ) -> RedirectResponse:
+        """Redirect to checkout."""
         redirect_dict = await self.checkout_url(request, uid, callback_url)
         return RedirectResponse(url=redirect_dict.redirect_url)
 
     async def validate_url(self, request: Request, uid: str) -> RedirectUrlSchema:
-        # await self.get_user(request)
+        """Validate basket URL."""
         basket = await Basket.get_by_uid(uid)
         if not basket:
             raise BaseHTTPException(404, "basket_not_found", "Basket not found")
@@ -306,6 +323,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
         return RedirectUrlSchema(redirect_url=redirect_url)
 
     async def validate(self, request: Request, uid: str) -> RedirectResponse:
+        """Redirect to validate."""
         redirect_dict = await self.validate_url(request, uid)
         return RedirectResponse(url=redirect_dict.redirect_url)
 

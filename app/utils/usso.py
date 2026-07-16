@@ -1,3 +1,5 @@
+"""USSO authentication helper."""
+
 import os
 
 from usso import APIHeaderConfig, AuthConfig
@@ -5,6 +7,7 @@ from usso.integrations.fastapi import USSOAuthentication
 
 
 def get_usso(raise_exception: bool = False) -> USSOAuthentication:
+    """Get a configured USSOAuthentication instance."""
     usso_base_url = os.getenv("USSO_BASE_URL") or "https://usso.uln.me"
 
     usso = USSOAuthentication(
