@@ -57,19 +57,21 @@ async def start_purchase(
         }
 
     callback_url = (
-        f"{Settings.core_url}{Settings.base_path}/purchases/{purchase.uid}/verify"
+        f"{Settings.root_url}{Settings.base_path}/purchases/{purchase.uid}/verify"
     )
 
     if amount == 0:
         return {"status": True, "uid": purchase.uid, "url": callback_url}
 
     ipg_schema = IPGPaymentSchema(
+        tenant_id=tenant_id,
         user_id=user_id,
         wallet_id=purchase.wallet_id,
         amount=amount,
         description=purchase.description,
         callback_url=callback_url,
         phone=phone,
+        is_test=True,
     )
     logging.info("IPGPaymentSchema: %s", ipg_schema)
 

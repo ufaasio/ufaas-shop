@@ -10,7 +10,7 @@ from apps.purchase.models import Purchase, PurchaseStatus
 from apps.tenant.models import Tenant
 from server.config import Settings
 from utils.saas import AcquisitionType, EnrollmentCreateSchema, EnrollmentSchema
-from utils.wallets import get_or_create_user_wallet
+from utils.wallets import get_or_create_owner_wallet
 
 from .models import Basket
 from .schemas import (
@@ -62,11 +62,12 @@ async def create_basket_payment(
             "create:finance/accounting/wallet",
             "create:finance/cashier/payment",
         ])
-        wallet = await get_or_create_user_wallet(client, basket.user_id)
+        owner_id = (basket.meta_data or {}).get("owner_id", basket.user_id)
+        wallet = await get_or_create_owner_wallet(client, owner_id)
         tenant = await Tenant.get_by_tenant_id(basket.tenant_id)
 
         callback_url = (
-            f"{Settings.core_url}{Settings.base_path}/baskets/{basket.uid}/validate"
+            f"{Settings.root_url}{Settings.base_path}/baskets/{basket.uid}/validate"
         )
         payment = await Purchase(
             tenant_id=basket.tenant_id,
@@ -140,7 +141,7 @@ async def create_saas_enrollment(
     )
     logging.info("enrollment_data %s", enrollment_data)
     enrollment_response = await client.post(
-        url=f"{Settings.core_url}/api/saas/v1/enrollments",
+        url=f"{Settings.root_url}/api/saas/v1/enrollments",
         json=enrollment_data.model_dump(mode="json"),
     )
     enrollment_response.raise_for_status()

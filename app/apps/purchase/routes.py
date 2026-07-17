@@ -85,7 +85,8 @@ class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
         item: Purchase = await self.get_item(uid, tenant_id=user.tenant_id)
         if user.user_id:
             async with AccountingClient(user.tenant_id) as client:
-                wallets = await get_wallets(client, user.user_id)
+                owner_id = user.workspace_id or user.user_id
+                wallets = await get_wallets(client, owner_id)
         else:
             wallets = None
         return self.retrieve_response_schema(
@@ -151,7 +152,7 @@ class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
     ) -> RedirectUrlSchema:
         """Get purchase start URL."""
         user = self.get_user_or_none(request)
-        item = await self.model.get_by_uid(uid)
+        item: Purchase = await self.model.get_by_uid(uid)
 
         if ipg is None:
             ipg = item.available_ipgs[0]

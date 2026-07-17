@@ -209,6 +209,7 @@ class BasketRouter(usso_routes.AbstractTenantUSSORouter):
                 user_id=user_id or user.user_id,
                 callback_url=callback_url,
                 status=BasketStatusEnum.active,
+                meta_data={"owner_id": user.workspace_id or user_id or user.user_id},
             ).save()
             await basket.add_basket_item(await data.get_basket_item(), exclusive=True)
             url = await create_checkout_basket_url(basket, callback_url)

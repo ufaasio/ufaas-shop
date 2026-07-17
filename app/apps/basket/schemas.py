@@ -193,7 +193,7 @@ class BasketDataSchema(TenantUserEntitySchema):
         """Purchase detail URL."""
         if not self.purchase_id:
             return None
-        return f"{Settings.core_url}{Settings.base_path}/purchases/{self.purchase_id}"
+        return f"{Settings.root_url}{Settings.base_path}/purchases/{self.purchase_id}"
 
 
 class BasketDetailSchema(BasketDataSchema):

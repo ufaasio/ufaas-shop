@@ -46,20 +46,22 @@ class PaymentSchema(BaseEntitySchema):
 class IPGPaymentSchema(BaseModel):
     """Schema for creating an IPG payment request."""
 
+    tenant_id: str
     user_id: str | None = None
     wallet_id: str
     amount: Decimal
 
     phone: str | None = None
-    description: str  # | None = None
+    description: str
     callback_url: str
+    is_test: bool = False
 
     status: PaymentStatus = PaymentStatus.INIT
 
 
 def get_payment_ipg_url(ipg: str) -> str:
     """Get the payment URL for a given IPG provider."""
-    return f"{Settings.core_url}/api/{ipg}/v1/payments"
+    return f"{Settings.ipg_base_url}/api/{ipg}/v1/payments"
 
 
 async def create_payment(
