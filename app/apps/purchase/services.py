@@ -71,7 +71,6 @@ async def start_purchase(
         description=purchase.description,
         callback_url=callback_url,
         phone=phone,
-        is_test=True,
     )
     logging.info("IPGPaymentSchema: %s", ipg_schema)
 
@@ -123,9 +122,9 @@ async def verify_purchase(
         purchase.tries.values(), payment_statuses, strict=True
     ):
         if payment_status == PaymentStatus.SUCCESS:
-            await purchase.success_payment(payment_trial.uid, save=False)
+            await purchase.success_purchase(payment_trial.uid, save=False)
         elif payment_status == PaymentStatus.FAILED:
-            await purchase.fail_payment(payment_trial.uid, save=False)
+            await purchase.fail_purchase(payment_trial.uid, save=False)
 
     return await purchase.save()
 

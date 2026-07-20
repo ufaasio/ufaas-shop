@@ -11,12 +11,14 @@ RUN uv pip install --system --no-cache-dir .
 FROM python:3.13-slim AS fast-server
 
 # Copy installed site-packages from build stage
-COPY --from=fast-uv /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
-
 WORKDIR /app
+COPY --from=fast-uv /usr/local/lib/python3.13/site-packages \
+                    /usr/local/lib/python3.13/site-packages
 
 RUN addgroup --system --gid 1000 user \
-    && adduser  --system --uid 1000 --ingroup user --disabled-password --gecos '' user \
+    && adduser --system --uid 1000 --ingroup user --disabled-password --gecos '' --home /home/user user \
+    # && mkdir -p /home/user \
+    # && chown -R user:user /home/user \
     && mkdir -p /app/logs \
     && chown -R user:user /app/logs
 
