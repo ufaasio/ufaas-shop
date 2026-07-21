@@ -1,3 +1,5 @@
+"""services module."""
+
 import asyncio
 import logging
 
@@ -19,10 +21,9 @@ from .schemas import (
     VoucherSchema,
 )
 
-# from ufaas.apps.saas.schemas import EnrollmentCreateSchema, EnrollmentSchema
-
 
 async def reserve_basket(basket: Basket, *, save: bool = True) -> Basket:
+    """reserve_basket."""
     reserve_tasks = [item.reserve_product() for item in basket.items.values()]
     asyncio.gather(*reserve_tasks)
     basket.status = BasketStatusEnum.reserved
@@ -32,6 +33,7 @@ async def reserve_basket(basket: Basket, *, save: bool = True) -> Basket:
 
 
 async def buy_basket(basket: Basket, *, save: bool = True) -> Basket:
+    """buy_basket."""
     buy_tasks = [item.buy_product() for item in basket.items.values()]
     asyncio.gather(*buy_tasks)
     basket.status = BasketStatusEnum.paid
@@ -42,6 +44,7 @@ async def buy_basket(basket: Basket, *, save: bool = True) -> Basket:
 
 
 async def cancel_basket(basket: Basket, *, save: bool = True) -> Basket:
+    """cancel_basket."""
     release_tasks = [item.release_product() for item in basket.items.values()]
     await asyncio.gather(*release_tasks)
     basket.status = BasketStatusEnum.cancelled
@@ -53,6 +56,7 @@ async def cancel_basket(basket: Basket, *, save: bool = True) -> Basket:
 async def create_basket_payment(
     basket: Basket, callback_url: str | None = None
 ) -> Purchase:
+    """create_basket_payment."""
     async with AccountingClient(basket.tenant_id) as client:
         await client.get_token([
             "create:finance/accounting/wallet",
@@ -84,6 +88,7 @@ async def create_checkout_basket_url(
     basket: Basket,
     callback_url: str | None = None,
 ) -> str:
+    """create_checkout_basket_url."""
     if basket.status in [BasketStatusEnum.locked, BasketStatusEnum.reserved]:
         if not basket.payment_detail_url:
             raise BadRequestError(
@@ -120,6 +125,7 @@ async def create_checkout_basket_url(
 async def create_saas_enrollment(
     client: AccountingClient, basket: Basket, item: BasketItemSchema
 ) -> EnrollmentSchema | None:
+    """create_saas_enrollment."""
     if item.item_type != ItemType.saas_package or not item.bundles:
         return None
     enrollment_data = EnrollmentCreateSchema(
@@ -145,6 +151,7 @@ async def create_saas_enrollment(
 async def purchase_basket_saas(
     basket: Basket, tenant_id: str
 ) -> list[EnrollmentSchema]:
+    """purchase_basket_saas."""
     try:
         async with AccountingClient(tenant_id) as client:
             await client.get_token("create:finance/saas/enrollment")
@@ -159,6 +166,7 @@ async def purchase_basket_saas(
 
 
 async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> Basket:
+    """apply_discount."""
     from apps.voucher.models import Voucher
     from apps.voucher.schemas import VoucherStatus
 
@@ -217,6 +225,7 @@ async def apply_discount(basket: Basket, voucher_code: VoucherSchema | None) -> 
 
 
 async def validate_basket(basket: Basket) -> None:
+    """validate_basket."""
     if not basket.payment_id:
         raise BadRequestError(
             error_code="invalid_payment",

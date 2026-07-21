@@ -1,3 +1,5 @@
+"""models module."""
+
 from decimal import Decimal
 
 from fastapi_mongo_base.models import TenantUserEntity
@@ -12,10 +14,13 @@ from .schemas import (
 
 
 class Basket(BasketDataSchema, TenantUserEntity):
+    """Basket."""
+
     items: dict[str, BasketItemSchema] = Field(default_factory=dict)
 
     @property
     def subtotal(self) -> Decimal:
+        """Subtotal."""
         total = Decimal(
             sum(
                 item.price * item.exchange_fee(self.currency)
@@ -26,17 +31,20 @@ class Basket(BasketDataSchema, TenantUserEntity):
 
     @property
     def amount(self) -> Decimal:
+        """Amount."""
         if self.discount:
             return self.subtotal - self.discount.discount
         return self.subtotal
 
     @property
     def description(self) -> str:
+        """Description."""
         return f"basket id = {self.uid} - total price = {self.subtotal}"
 
     async def add_basket_item(
         self, item: BasketItemSchema, exclusive: bool = False
     ) -> None:
+        """add_basket_item."""
         item_dict = item.model_dump(exclude=["uid", "quantity"])
 
         if exclusive:
@@ -54,6 +62,7 @@ class Basket(BasketDataSchema, TenantUserEntity):
     async def update_basket_item(
         self, item_id: str, data: BasketItemChangeSchema, **kwargs: object
     ) -> None:
+        """update_basket_item."""
         basket_item: BasketItemSchema | None = self.items.get(item_id)
 
         if basket_item is None:
@@ -72,11 +81,13 @@ class Basket(BasketDataSchema, TenantUserEntity):
         await self.save()
 
     async def delete_basket_item(self, item_id: str) -> None:
+        """delete_basket_item."""
         self.items.pop(item_id, None)
         await self.save()
 
     @property
     def detail(self) -> BasketDetailSchema:
+        """Detail."""
         return BasketDetailSchema.model_validate(
             self.model_dump(exclude={"items"})
             | {

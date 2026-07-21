@@ -1,3 +1,5 @@
+"""currency module."""
+
 from enum import StrEnum
 
 

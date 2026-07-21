@@ -1,3 +1,5 @@
+"""wallets module."""
+
 from ufaas.services import AccountingClient
 from ufaas.wallet import WalletDetailSchema
 

@@ -23,10 +23,11 @@ class Settings(config.Settings):
 
     @classmethod
     def get_log_config(cls, console_level: str = "INFO", **kwargs: object) -> dict:
+        """get_log_config."""
         log_config = {
             "formatters": {
                 "standard": {
-                    "format": "[{levelname} {name} : {filename}:{lineno} : {asctime} -> {funcName:10}] {message}",  # noqa: E501
+                    "format": "[{levelname} {name} : {filename}:{lineno} : {asctime} -> {funcName:10}] {message}",  # ruff:ignore[line-too-long]
                     "style": "{",
                 }
             },

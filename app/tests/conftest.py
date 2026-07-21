@@ -1,3 +1,5 @@
+"""conftest module."""
+
 import logging
 import os
 from collections.abc import AsyncGenerator, Generator
@@ -16,11 +18,11 @@ from server.server import app as fastapi_app
 @pytest.fixture(scope="session", autouse=True)
 def setup_debugpy() -> None:
     if os.getenv("DEBUGPY", "False").lower() in ("true", "1", "yes"):
-        import debugpy  # noqa: T100
+        import debugpy  # ruff:ignore[debugger]
 
-        debugpy.listen(("127.0.0.1", 3020))  # noqa: T100
+        debugpy.listen(("127.0.0.1", 3020))  # ruff:ignore[debugger]
         logging.info("Waiting for debugpy client")
-        debugpy.wait_for_client()  # noqa: T100
+        debugpy.wait_for_client()  # ruff:ignore[debugger]
 
 
 @pytest.fixture(scope="session")

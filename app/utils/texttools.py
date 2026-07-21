@@ -1,3 +1,5 @@
+"""texttools module."""
+
 import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
@@ -6,8 +8,6 @@ url_regex = re.compile(
     r"(?"
     r":(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain...
     r"localhost|"  # or localhost...
-    # r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|"  # or IPv4...
-    # r"\[?[A-F0-9]*:[A-F0-9:]+\]?"  # or IPv6...
     r")"
     r"(?::\d+)?"  # optional port
     r"(?:\/[-A-Z0-9+&@#\/%=~_|$]*)*$",

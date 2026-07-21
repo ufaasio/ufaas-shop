@@ -1,3 +1,5 @@
+"""routes module."""
+
 from datetime import datetime
 
 from fastapi import Query, Request
@@ -11,6 +13,8 @@ from .schemas import VoucherCreateSchema, VoucherSchema, VoucherUpdateSchema
 
 
 class VoucherRouter(usso_routes.AbstractTenantUSSORouter):
+    """VoucherRouter."""
+
     model = Voucher
     schema = VoucherSchema
 
@@ -22,6 +26,7 @@ class VoucherRouter(usso_routes.AbstractTenantUSSORouter):
         created_at_from: datetime | None = None,
         created_at_to: datetime | None = None,
     ) -> PaginatedResponse[VoucherSchema]:
+        """list_items."""
         user = await self.get_user(request)
         return await self._list_items(
             request=request,
@@ -34,6 +39,7 @@ class VoucherRouter(usso_routes.AbstractTenantUSSORouter):
         )
 
     async def create_item(self, request: Request, data: VoucherCreateSchema) -> Voucher:
+        """create_item."""
         user = await self.get_user(request)
         item = self.model(
             tenant_id=user.tenant_id,
@@ -46,6 +52,7 @@ class VoucherRouter(usso_routes.AbstractTenantUSSORouter):
     async def update_item(
         self, request: Request, uid: str, data: VoucherUpdateSchema
     ) -> Voucher:
+        """update_item."""
         return await super().update_item(
             request, uid, data.model_dump(exclude_none=True, exclude_unset=True)
         )

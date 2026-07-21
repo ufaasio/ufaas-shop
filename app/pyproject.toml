@@ -58,17 +58,18 @@ select = [
     "EXE", # executable: executable checking
     "ISC", # implicit string concatenation
     "G",   # misuse of logging string interpolation
-    # "D",     # docstrings: docstring checking
-    # "ERA", # remove commented code
+    "D",     # docstrings: docstring checking
+    "ERA",   # remove commented code
     "RUF", # ruff-specific improvements
 ]
-ignore = ["TRY003", "COM812", "B008"]
+ignore = ["raise-vanilla-args", "missing-trailing-comma", "function-call-in-default-argument", "blank-line-after-function", "incorrect-blank-line-before-class", "new-line-after-last-paragraph", "multi-line-summary-first-line", "missing-blank-line-after-last-section"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["G004", "S101", "S105", "S106", "B017"]
-"server/db.py" = ["TRY"]
-"apps/tenant/messaging/channels/sms.py" = ["ERA001"]
-
+"tests/*" = ["D", "logging-f-string", "assert"]
+"utils/*" = ["D"]
+"apps/*/__init__.py" = ["D"]
+"server/__init__.py" = ["D"]
+"apps/__init__.py" = ["D"]
 
 [tool.ruff.format]
 quote-style = "double"

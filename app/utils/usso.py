@@ -1,3 +1,5 @@
+"""usso module."""
+
 import os
 
 from usso import APIHeaderConfig, AuthConfig

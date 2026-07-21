@@ -1,3 +1,5 @@
+"""test_health module."""
+
 import httpx
 import pytest
 
