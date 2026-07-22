@@ -1,1 +1,1 @@
-"""Package init."""
+"""Server package."""

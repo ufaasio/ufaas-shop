@@ -1,4 +1,4 @@
-"""conftest module."""
+"""Test configuration and fixtures."""
 
 import logging
 import os
@@ -17,16 +17,18 @@ from server.server import app as fastapi_app
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_debugpy() -> None:
+    """Set up debugpy for remote debugging if enabled."""
     if os.getenv("DEBUGPY", "False").lower() in ("true", "1", "yes"):
-        import debugpy  # ruff:ignore[debugger]
+        import debugpy  # noqa: T100
 
-        debugpy.listen(("127.0.0.1", 3020))  # ruff:ignore[debugger]
+        debugpy.listen(("127.0.0.1", 3020))  # noqa: T100
         logging.info("Waiting for debugpy client")
-        debugpy.wait_for_client()  # ruff:ignore[debugger]
+        debugpy.wait_for_client()  # noqa: T100
 
 
 @pytest.fixture(scope="session")
 def mongo_client() -> Generator[object]:
+    """Create a mock MongoDB client."""
     from mongomock_motor import AsyncMongoMockClient
 
     yield AsyncMongoMockClient()
@@ -34,6 +36,7 @@ def mongo_client() -> Generator[object]:
 
 # Async setup function to initialize the database with Beanie
 async def init_db(mongo_client: object) -> None:
+    """Initialize the test database with Beanie."""
     database = mongo_client.get_database("test_db")
     await init_beanie(
         database=database,
@@ -43,6 +46,7 @@ async def init_db(mongo_client: object) -> None:
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def db(mongo_client: object) -> AsyncGenerator[None]:
+    """Set up and tear down the database for the test session."""
     Settings.config_logger()
     logging.info("Initializing database")
     await init_db(mongo_client)
@@ -65,6 +69,7 @@ async def client() -> AsyncGenerator[httpx.AsyncClient]:
 async def authenticated_client(
     client: httpx.AsyncClient,
 ) -> AsyncGenerator[httpx.AsyncClient]:
+    """Provide an authenticated AsyncClient for the test session."""
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=fastapi_app),
         base_url=client.base_url,

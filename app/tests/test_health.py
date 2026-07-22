@@ -1,4 +1,4 @@
-"""test_health module."""
+"""Health endpoint tests."""
 
 import httpx
 import pytest

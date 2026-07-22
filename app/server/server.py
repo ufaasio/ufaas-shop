@@ -1,7 +1,8 @@
-"""server module."""
+"""FastAPI application factory."""
 
 from fastapi import APIRouter
 from fastapi_mongo_base.core import app_factory
+from ufaas.fastapi import EXCEPTION_HANDLERS as ufaas_exception_handlers
 
 from apps.basket.routes import router as basket_router
 from apps.product.routes import router as product_router
@@ -11,7 +12,13 @@ from apps.voucher.routes import router as voucher_router
 
 from . import config
 
-app = app_factory.create_app(settings=config.Settings())
+exception_handlers = {}
+exception_handlers.update(ufaas_exception_handlers)
+
+app = app_factory.create_app(
+    settings=config.Settings(),
+    exception_handlers=exception_handlers,
+)
 server_router = APIRouter()
 
 for router in [

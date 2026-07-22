@@ -1,4 +1,4 @@
-"""services module."""
+"""Purchase services."""
 
 import asyncio
 import logging
@@ -22,7 +22,7 @@ from .models import Purchase
 
 
 async def purchases_options(purchase: Purchase) -> list[str]:
-    """purchases_options."""
+    """Get available purchase options."""
     tenant = await Tenant.get_by_tenant_id(purchase.tenant_id)
     return tenant.ipgs
 
@@ -37,7 +37,7 @@ async def start_purchase(
     phone: str | None = None,
     **kwargs: object,
 ) -> dict:
-    """start_purchase."""
+    """Start a purchase with the given IPG."""
     if purchase.is_overdue():
         await purchase.fail("Purchase is overdue")
         return {
@@ -57,13 +57,14 @@ async def start_purchase(
         }
 
     callback_url = (
-        f"{Settings.core_url}{Settings.base_path}/purchases/{purchase.uid}/verify"
+        f"{Settings.root_url}{Settings.base_path}/purchases/{purchase.uid}/verify"
     )
 
     if amount == 0:
         return {"status": True, "uid": purchase.uid, "url": callback_url}
 
     ipg_schema = IPGPaymentSchema(
+        tenant_id=tenant_id,
         user_id=user_id,
         wallet_id=purchase.wallet_id,
         amount=amount,
@@ -87,7 +88,7 @@ async def start_purchase(
 async def verify_payment(
     client: AccountingClient, payment_trials: PaymentSchema
 ) -> PaymentStatus:
-    """verify_payment."""
+    """Verify payment status."""
     if not payment_trials.status.is_open():
         return payment_trials.status
 
@@ -105,7 +106,7 @@ async def verify_payment(
 async def verify_purchase(
     tenant_id: str, purchase: Purchase, **kwargs: object
 ) -> Purchase:
-    """verify_purchase."""
+    """Verify purchase payments."""
     if purchase.amount == 0:
         return await purchase.success(None)
 
@@ -121,15 +122,15 @@ async def verify_purchase(
         purchase.tries.values(), payment_statuses, strict=True
     ):
         if payment_status == PaymentStatus.SUCCESS:
-            await purchase.success_payment(payment_trial.uid, save=False)
+            await purchase.success_purchase(payment_trial.uid, save=False)
         elif payment_status == PaymentStatus.FAILED:
-            await purchase.fail_payment(payment_trial.uid, save=False)
+            await purchase.fail_purchase(payment_trial.uid, save=False)
 
     return await purchase.save()
 
 
 async def create_proposal(purchase: Purchase) -> ProposalSchema | None:
-    """create_proposal."""
+    """Create a proposal for a successful purchase."""
     tenant_id = purchase.tenant_id
 
     if purchase.amount == 0:

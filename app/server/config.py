@@ -16,18 +16,19 @@ class Settings(config.Settings):
 
     base_dir: Path = Path(__file__).resolve().parent.parent
     base_path: str = "/api/shop/v1"
-    core_url: str = os.getenv("CORE_URL", "https://app.uln.me")
+    saas_base_url: str = os.getenv("SAAS_BASE_URL", "https://saas.uln.me")
+    ipg_base_url: str = os.getenv("IPG_BASE_URL", "https://zarinpal.ulni.ir")
 
     coverage_dir: Path = base_dir / "htmlcov"
     currency: str = "IRR"
 
     @classmethod
     def get_log_config(cls, console_level: str = "INFO", **kwargs: object) -> dict:
-        """get_log_config."""
+        """Get the log configuration dict."""
         log_config = {
             "formatters": {
                 "standard": {
-                    "format": "[{levelname} {name} : {filename}:{lineno} : {asctime} -> {funcName:10}] {message}",  # ruff:ignore[line-too-long]
+                    "format": "[{levelname} {name} : {filename}:{lineno} : {asctime} -> {funcName:10}] {message}",  # noqa: E501
                     "style": "{",
                 }
             },

@@ -1,1 +1,1 @@
-"""Package init."""
+"""Tenant app package."""

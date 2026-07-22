@@ -1,4 +1,4 @@
-"""models module."""
+"""Basket models."""
 
 from decimal import Decimal
 
@@ -14,13 +14,13 @@ from .schemas import (
 
 
 class Basket(BasketDataSchema, TenantUserEntity):
-    """Basket."""
+    """Basket model."""
 
     items: dict[str, BasketItemSchema] = Field(default_factory=dict)
 
     @property
     def subtotal(self) -> Decimal:
-        """Subtotal."""
+        """Calculate subtotal."""
         total = Decimal(
             sum(
                 item.price * item.exchange_fee(self.currency)
@@ -31,20 +31,20 @@ class Basket(BasketDataSchema, TenantUserEntity):
 
     @property
     def amount(self) -> Decimal:
-        """Amount."""
+        """Calculate amount after discount."""
         if self.discount:
             return self.subtotal - self.discount.discount
         return self.subtotal
 
     @property
     def description(self) -> str:
-        """Description."""
+        """Basket description."""
         return f"basket id = {self.uid} - total price = {self.subtotal}"
 
     async def add_basket_item(
         self, item: BasketItemSchema, exclusive: bool = False
     ) -> None:
-        """add_basket_item."""
+        """Add item to basket."""
         item_dict = item.model_dump(exclude=["uid", "quantity"])
 
         if exclusive:
@@ -62,13 +62,13 @@ class Basket(BasketDataSchema, TenantUserEntity):
     async def update_basket_item(
         self, item_id: str, data: BasketItemChangeSchema, **kwargs: object
     ) -> None:
-        """update_basket_item."""
+        """Update basket item."""
         basket_item: BasketItemSchema | None = self.items.get(item_id)
 
         if basket_item is None:
             if kwargs.get("raise_error"):
                 return
-            raise ValueError(f"Item with id {item_id} not found in the basket.")
+            raise ValueError
 
         if data.new_quantity:
             basket_item.quantity = data.new_quantity
@@ -81,13 +81,13 @@ class Basket(BasketDataSchema, TenantUserEntity):
         await self.save()
 
     async def delete_basket_item(self, item_id: str) -> None:
-        """delete_basket_item."""
+        """Delete basket item."""
         self.items.pop(item_id, None)
         await self.save()
 
     @property
     def detail(self) -> BasketDetailSchema:
-        """Detail."""
+        """Basket detail."""
         return BasketDetailSchema.model_validate(
             self.model_dump(exclude={"items"})
             | {

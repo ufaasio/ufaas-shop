@@ -1,1 +1,1 @@
-"""Package init."""
+"""Product app package."""

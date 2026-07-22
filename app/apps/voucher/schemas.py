@@ -1,4 +1,4 @@
-"""schemas module."""
+"""Voucher schemas."""
 
 import secrets
 from datetime import datetime
@@ -12,7 +12,7 @@ from ufaas.enums import Currency
 
 
 class VoucherStatus(StrEnum):
-    """VoucherStatus."""
+    """Voucher status options."""
 
     ACTIVE = "active"
     INACTIVE = "inactive"
@@ -21,7 +21,7 @@ class VoucherStatus(StrEnum):
 
 
 class VoucherCreateSchema(BaseModel):
-    """VoucherCreateSchema."""
+    """Schema for creating a voucher."""
 
     code: str = Field(
         default_factory=lambda: secrets.token_urlsafe(10),
@@ -53,17 +53,17 @@ class VoucherCreateSchema(BaseModel):
     @field_validator("rate", mode="before")
     @classmethod
     def validate_rate(cls, value: Decimal) -> Decimal:
-        """validate_rate."""
+        """Validate and convert the rate to a Decimal."""
         return bsontools.decimal_amount(value)
 
     @field_validator("cap", mode="before")
     @classmethod
     def validate_cap(cls, value: Decimal) -> Decimal:
-        """validate_cap."""
+        """Validate and convert the cap to a Decimal."""
         return bsontools.decimal_amount(value)
 
     def calculate_discount(self, amount: Decimal) -> Decimal:
-        """calculate_discount."""
+        """Calculate the discount amount for a given amount."""
         discount_value = amount * self.rate / 100
         discount_value = (
             discount_value if self.cap is None else min(discount_value, self.cap)
@@ -72,7 +72,7 @@ class VoucherCreateSchema(BaseModel):
 
 
 class VoucherUpdateSchema(BaseModel):
-    """VoucherUpdateSchema."""
+    """Schema for updating a voucher."""
 
     status: VoucherStatus | None = None
     expired_at: datetime | None = None
@@ -80,7 +80,7 @@ class VoucherUpdateSchema(BaseModel):
 
 
 class VoucherSchema(VoucherCreateSchema, TenantScopedEntitySchema):
-    """VoucherSchema."""
+    """Voucher schema with entity and redemption fields."""
 
     redeemed: int = Field(
         default=0, ge=0, description="Number of times the voucher has been used"

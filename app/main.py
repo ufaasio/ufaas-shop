@@ -1,4 +1,4 @@
-"""main module."""
+"""Application entry point."""
 
 import asyncio
 import logging
@@ -14,11 +14,10 @@ __all__ = ["app"]
 
 
 async def main() -> None:
-    """Run the application."""
     module = Path(__file__).stem
     config = uvicorn.Config(
         f"{module}:app",
-        host="0.0.0.0",  # ruff:ignore[hardcoded-bind-all-interfaces]
+        host="0.0.0.0",  # noqa: S104
         port=8000,
         access_log=True,
         workers=1,
@@ -31,7 +30,6 @@ async def main() -> None:
     stop_event = asyncio.Event()
 
     def shutdown(sig: int) -> None:
-        """Shutdown."""
         logging.info("Received stop signal %d. Initiating graceful shutdown...", sig)
         stop_event.set()
         server.handle_exit(sig=sig, frame=None)

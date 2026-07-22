@@ -1,4 +1,4 @@
-"""texttools module."""
+"""Text and URL utility functions."""
 
 import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
@@ -16,6 +16,7 @@ url_regex = re.compile(
 
 
 def is_valid_url(url: str) -> bool:
+    """Check if a string is a valid URL."""
     # Check if the URL matches the regex
     if re.match(url_regex, url) is None:
         return False
@@ -26,6 +27,7 @@ def is_valid_url(url: str) -> bool:
 
 
 def add_query_params(url: str, new_params: dict[str, str]) -> str:
+    """Add or update query parameters in a URL."""
     parsed = urlparse(url)
     existing_params = parse_qs(parsed.query)
     flat_params = {k: v[0] for k, v in existing_params.items()}

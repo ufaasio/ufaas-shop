@@ -1,4 +1,4 @@
-"""models module."""
+"""Voucher models."""
 
 from typing import Self
 
@@ -8,13 +8,13 @@ from .schemas import VoucherSchema, VoucherStatus
 
 
 class Voucher(VoucherSchema, TenantUserEntity):
-    """Voucher."""
+    """Voucher model."""
 
     @classmethod
     async def get_by_code(
         cls, tenant_id: str, code: str, user_id: str | None = None
     ) -> Self | None:
-        """get_by_code."""
+        """Get an active voucher by code for a tenant."""
         base_query = cls.get_queryset(
             tenant_id=tenant_id, code=code, status=VoucherStatus.ACTIVE
         )

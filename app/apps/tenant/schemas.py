@@ -1,11 +1,11 @@
-"""schemas module."""
+"""Tenant schemas."""
 
 from fastapi_mongo_base.schemas import TenantScopedEntitySchema
 from pydantic import BaseModel, Field
 
 
 class TenantCreateSchema(BaseModel):
-    """TenantCreateSchema."""
+    """Schema for creating a tenant."""
 
     tenant_id: str | None = None
     name: str
@@ -15,6 +15,4 @@ class TenantCreateSchema(BaseModel):
 
 
 class TenantSchema(TenantCreateSchema, TenantScopedEntitySchema):
-    """TenantSchema."""
-
-    pass
+    """Tenant schema with entity fields."""

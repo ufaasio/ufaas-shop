@@ -1,1 +1,1 @@
-"""Package init."""
+"""Basket app."""

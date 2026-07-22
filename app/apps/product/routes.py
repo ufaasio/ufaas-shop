@@ -1,4 +1,4 @@
-"""routes module."""
+"""Product routes."""
 
 from fastapi import Request
 from fastapi_mongo_base.utils import usso_routes
@@ -11,29 +11,29 @@ from .schemas import ProductCreateSchema, ProductSchema, ProductUpdateSchema
 
 
 class ProductsRouter(usso_routes.AbstractTenantUSSORouter):
-    """ProductsRouter."""
+    """Products router."""
 
     model = Product
     schema = ProductSchema
 
     async def get_user(self, request: Request, **kwargs: object) -> UserData:
-        """get_user."""
+        """Get the current user."""
         usso = utils.usso.get_usso()
         return usso(request)
 
     async def retrieve_item(self, request: Request, uid: str) -> Product:
-        """retrieve_item."""
+        """Retrieve a product by UID."""
         item = await self.get_item(uid=uid)
         return item
 
     async def create_item(self, request: Request, data: ProductCreateSchema) -> Product:
-        """create_item."""
+        """Create a new product."""
         return await super().create_item(request, data.model_dump())
 
     async def update_item(
         self, request: Request, uid: str, data: ProductUpdateSchema
     ) -> Product:
-        """update_item."""
+        """Update an existing product."""
         return await super().update_item(
             request, uid, data.model_dump(exclude_none=True)
         )

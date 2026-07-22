@@ -1,4 +1,4 @@
-"""schemas module."""
+"""Purchase schemas."""
 
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -24,10 +24,10 @@ PurchaseStatus = PaymentStatus
 
 
 class PurchaseCreateSchema(BaseModel):
-    """PurchaseCreateSchema."""
+    """Purchase creation schema."""
 
-    user_id: str  # | None = None
-    wallet_id: str  # | None = None
+    user_id: str
+    wallet_id: str
     basket_id: str | None = None
     amount: Decimal
     currency: Currency = Currency.IRR
@@ -40,38 +40,54 @@ class PurchaseCreateSchema(BaseModel):
     accept_wallet: bool = True
     voucher_code: str | None = None
 
+
+class WalletRequiredError(ValueError):
+    """Wallet required error."""
+
+    def __init__(self) -> None:
+        """Initialize the error."""
+        super().__init__("user_id or wallet_id should be set")
+
+
+class InvalidURLError(ValueError):
+    """Invalid URL error."""
+
+    def __init__(self, url: str) -> None:
+        """Initialize the error."""
+        super().__init__(f"Invalid URL {url}")
+
     @model_validator(mode="after")
     def validate_user_wallet(self) -> Self:
-        """validate_user_wallet."""
+        """Validate user and wallet are set."""
         if not self.user_id and not self.wallet_id:
-            raise ValueError("user_id or wallet_id should be set")
+            raise WalletRequiredError()
         return self
 
     @field_validator("amount", mode="before")
     @classmethod
     def validate_amount(cls, value: Decimal) -> Decimal:
-        """validate_amount."""
+        """Validate amount format."""
         return bsontools.decimal_amount(value)
 
     @field_validator("callback_url", mode="before")
     @classmethod
     def validate_callback_url(cls, value: str) -> str:
-        """validate_callback_url."""
+        """Validate callback URL format."""
         from utils.texttools import is_valid_url
 
         if not is_valid_url(value):
-            raise ValueError(f"Invalid URL {value}")
+            raise InvalidURLError(value)
         return value
 
 
 class PurchaseUpdateSchema(BaseModel):
-    """PurchaseUpdateSchema."""
+    """Purchase update schema."""
 
     voucher_code: str | None = None
 
 
 class PurchaseSchema(PurchaseCreateSchema, TenantUserEntitySchema):
-    """PurchaseSchema."""
+    """Purchase schema."""
 
     status: PurchaseStatus = PurchaseStatus.INIT
     tries: dict[str, PaymentSchema] = Field(default_factory=dict)
@@ -82,7 +98,7 @@ class PurchaseSchema(PurchaseCreateSchema, TenantUserEntitySchema):
     duration: int = 60 * 60  # in seconds
 
     def is_overdue(self) -> bool:
-        """is_overdue."""
+        """Check if purchase is overdue."""
         created_at = self.created_at
         if created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=timezone.tz)
@@ -92,18 +108,18 @@ class PurchaseSchema(PurchaseCreateSchema, TenantUserEntitySchema):
     @field_validator("amount", mode="before")
     @classmethod
     def validate_amount(cls, value: Decimal) -> Decimal:
-        """validate_amount."""
+        """Validate amount format."""
         return bsontools.decimal_amount(value)
 
     @field_validator("original_amount", mode="before")
     @classmethod
     def validate_original_amount(cls, value: Decimal) -> Decimal:
-        """validate_original_amount."""
+        """Validate original amount format."""
         return bsontools.decimal_amount(value)
 
     @model_validator(mode="after")
     def validate_null_original_amount(self) -> Self:
-        """validate_null_original_amount."""
+        """Set original amount if not set."""
         if not self.original_amount:
             self.original_amount = self.amount
         return self
@@ -111,7 +127,7 @@ class PurchaseSchema(PurchaseCreateSchema, TenantUserEntitySchema):
     @field_serializer("status")
     @classmethod
     def serialize_status(cls, value: PurchaseStatus | str | object) -> str:
-        """serialize_status."""
+        """Serialize purchase status to string."""
         if isinstance(value, PurchaseStatus):
             return value.value
         if isinstance(value, str):
@@ -120,21 +136,21 @@ class PurchaseSchema(PurchaseCreateSchema, TenantUserEntitySchema):
 
 
 class PurchaseRetrieveSchema(PurchaseSchema):
-    """PurchaseRetrieveSchema."""
+    """Purchase retrieve schema."""
 
     ipgs: list[str] | None = None
     wallets: list[WalletSchema] | WalletSchema | None = None
 
 
 class Participant(BaseModel):
-    """Participant."""
+    """Participant schema."""
 
     wallet_id: str
     amount: Decimal
 
 
 class ProposalCreateSchema(BaseModel):
-    """ProposalCreateSchema."""
+    """Proposal creation schema."""
 
     amount: Decimal
     description: str | None = None
@@ -146,7 +162,7 @@ class ProposalCreateSchema(BaseModel):
 
 
 class PurchaseStartSchema(BaseModel):
-    """PurchaseStartSchema."""
+    """Purchase start schema."""
 
     name: str
     amount: Decimal

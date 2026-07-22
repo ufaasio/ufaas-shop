@@ -1,1 +1,1 @@
-"""Package init."""
+"""Voucher app package."""

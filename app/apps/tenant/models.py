@@ -1,4 +1,4 @@
-"""models module."""
+"""Tenant models."""
 
 from typing import Self
 
@@ -8,9 +8,9 @@ from .schemas import TenantSchema
 
 
 class Tenant(TenantSchema, TenantScopedEntity):
-    """Tenant."""
+    """Tenant model."""
 
     @classmethod
     async def get_by_tenant_id(cls, tenant_id: str) -> Self:
-        """get_by_tenant_id."""
+        """Get a tenant by its tenant_id."""
         return await cls.find_one({"tenant_id": tenant_id})

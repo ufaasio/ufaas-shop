@@ -1,4 +1,4 @@
-"""models module."""
+"""Purchase models."""
 
 from datetime import datetime
 from typing import Self
@@ -10,11 +10,11 @@ from .schemas import PurchaseSchema, PurchaseStatus
 
 
 class Purchase(PurchaseSchema, TenantUserEntity):
-    """Purchase."""
+    """Purchase model."""
 
     @classmethod
     async def get_purchase_by_code(cls, tenant_id: str, code: str) -> Self:
-        """get_purchase_by_code."""
+        """Get purchase by tenant and code."""
         return await cls.find_one({
             "is_deleted": False,
             "tenant_id": tenant_id,
@@ -22,20 +22,20 @@ class Purchase(PurchaseSchema, TenantUserEntity):
         })
 
     async def success(self, ref_id: int | None = None) -> Self:
-        """Success."""
+        """Mark purchase as successful."""
         self.ref_id = ref_id
         self.status = PurchaseStatus.SUCCESS
         self.verified_at = datetime.now(timezone.tz)
         return await self.save()
 
     async def fail(self, failure_reason: str | None = None) -> Self:
-        """Fail."""
+        """Mark purchase as failed."""
         self.status = PurchaseStatus.FAILED
         self.failure_reason = failure_reason
         return await self.save()
 
     async def success_purchase(self, uid: str, *, save: bool = True) -> Self:
-        """success_purchase."""
+        """Mark a purchase trial as successful."""
         purchase_trial = self.tries.get(uid)
         purchase_trial.status = PurchaseStatus.SUCCESS
         purchase_trial.verified_at = datetime.now(timezone.tz)
@@ -48,7 +48,7 @@ class Purchase(PurchaseSchema, TenantUserEntity):
         return self
 
     async def fail_purchase(self, uid: str, *, save: bool = True) -> Self:
-        """fail_purchase."""
+        """Mark a purchase trial as failed."""
         purchase_trial = self.tries.get(uid)
         purchase_trial.status = PurchaseStatus.FAILED
         purchase_trial.verified_at = datetime.now(timezone.tz)
@@ -60,10 +60,10 @@ class Purchase(PurchaseSchema, TenantUserEntity):
 
     @property
     def is_successful(self) -> bool:
-        """is_successful."""
+        """Check if purchase is successful."""
         return self.status == PurchaseStatus.SUCCESS
 
     @property
     def start_purchase_url(self) -> str:
-        """start_purchase_url."""
+        """Start purchase URL."""
         return self.config.purchase_request_url(self.code)

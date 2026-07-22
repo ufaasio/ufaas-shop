@@ -1,1 +1,1 @@
-"""services module."""
+"""Product services."""

@@ -1,4 +1,4 @@
-"""routes module."""
+"""Purchase routes."""
 
 import logging
 from decimal import Decimal
@@ -33,24 +33,24 @@ from .services import (
 
 
 class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
-    """PurchaseRouter."""
+    """Purchase router."""
 
     model = Purchase
     schema = PurchaseSchema
 
     def get_user_or_none(self, request: Request, **kwargs: object) -> UserData | None:
-        """get_user_or_none."""
+        """Get user or return None."""
         usso = get_usso(raise_exception=False)
         return usso(request)
 
     def config_schemas(self, schema: type, **kwargs: object) -> None:
-        """config_schemas."""
+        """Configure request/response schemas."""
         super().config_schemas(schema)
         self.create_request_schema = PurchaseCreateSchema
         self.retrieve_response_schema = PurchaseRetrieveSchema
 
     def config_routes(self, **kwargs: object) -> None:
-        """config_routes."""
+        """Configure API routes."""
         super().config_routes(update_route=False, delete_route=False, **kwargs)
         self.router.add_api_route(
             "/start",
@@ -80,12 +80,13 @@ class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
         )
 
     async def retrieve_item(self, request: Request, uid: str) -> PurchaseRetrieveSchema:
-        """retrieve_item."""
+        """Retrieve a purchase item."""
         user = await self.get_user(request)
         item: Purchase = await self.get_item(uid, tenant_id=user.tenant_id)
         if user.user_id:
             async with AccountingClient(user.tenant_id) as client:
-                wallets = await get_wallets(client, user.user_id)
+                owner_id = user.workspace_id or user.user_id
+                wallets = await get_wallets(client, owner_id)
         else:
             wallets = None
         return self.retrieve_response_schema(
@@ -95,7 +96,7 @@ class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
     async def create_item(
         self, request: Request, data: PurchaseCreateSchema
     ) -> PurchaseSchema:
-        """create_item."""
+        """Create a new purchase."""
         user = await self.get_user(request)
         tenant = await Tenant.get_by_tenant_id(user.tenant_id)
 
@@ -129,7 +130,7 @@ class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
         user_id: str,
         callback_url: str,
     ) -> dict:
-        """start_direct_purchase."""
+        """Start a direct purchase."""
         purchase: Purchase = await self.create_item(
             request,
             PurchaseCreateSchema(
@@ -149,9 +150,9 @@ class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
         ipg: str | None = None,
         amount: Decimal | None = None,
     ) -> RedirectUrlSchema:
-        """start_purchase_url."""
+        """Get purchase start URL."""
         user = self.get_user_or_none(request)
-        item = await self.model.get_by_uid(uid)
+        item: Purchase = await self.model.get_by_uid(uid)
 
         if ipg is None:
             ipg = item.available_ipgs[0]
@@ -186,7 +187,7 @@ class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
         ipg: str | None = None,
         amount: Decimal | None = None,
     ) -> RedirectResponse:
-        """start_purchase."""
+        """Start purchase and redirect."""
         redirect_dict = await self.start_purchase_url(request, uid, ipg, amount)
         return RedirectResponse(url=redirect_dict.redirect_url)
 
@@ -195,7 +196,7 @@ class PurchaseRouter(usso_routes.AbstractTenantUSSORouter):
         request: Request,
         uid: str,
     ) -> RedirectResponse:
-        """verify_purchase."""
+        """Verify purchase and redirect."""
         item: Purchase = await self.model.get_by_uid(uid)
         purchase_status = item.status
 
