@@ -38,6 +38,15 @@ def mongo_client() -> Generator[object]:
 async def init_db(mongo_client: object) -> None:
     """Initialize the test database with Beanie."""
     database = mongo_client.get_database("test_db")
+    original_list_collection_names = database.list_collection_names
+
+    async def list_collection_names(*args: object, **kwargs: object) -> list[str]:
+        # Beanie 2 / PyMongo pass kwargs mongomock_motor does not accept.
+        kwargs.pop("authorizedCollections", None)
+        kwargs.pop("nameOnly", None)
+        return await original_list_collection_names(*args, **kwargs)
+
+    database.list_collection_names = list_collection_names
     await init_beanie(
         database=database,
         document_models=basic.get_all_subclasses(models.BaseEntity),
