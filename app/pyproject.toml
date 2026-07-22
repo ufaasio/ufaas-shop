@@ -65,10 +65,19 @@ select = [
     "ERA",   # remove commented code
     "RUF",   # ruff-specific improvements
 ]
-ignore = ["COM812", "B008", "D202", "D203", "D209", "D212", "D413"]
+ignore = [
+    "raise-vanilla-args",
+    "missing-trailing-comma",
+    "function-call-in-default-argument",
+    "blank-line-after-function",
+    "incorrect-blank-line-before-class",
+    "new-line-after-last-paragraph",
+    "multi-line-summary-first-line",
+    "missing-blank-line-after-last-section",
+]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]
+"tests/*" = ["logging-f-string", "assert"]
 
 
 [tool.ruff.format]

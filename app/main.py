@@ -17,7 +17,7 @@ async def main() -> None:
     module = Path(__file__).stem
     config = uvicorn.Config(
         f"{module}:app",
-        host="0.0.0.0",  # noqa: S104
+        host="0.0.0.0",  # ruff:ignore[hardcoded-bind-all-interfaces]
         port=8000,
         access_log=True,
         workers=1,
