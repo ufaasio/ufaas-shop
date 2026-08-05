@@ -29,7 +29,7 @@ from ufaas import ufaas
 
 
 # Initialize the SDK
-faas = ufaas(api_key='your_api_key_here')
+faas = ufaas(api_key="your_api_key_here")
 ```
 
 ## Usage
@@ -37,29 +37,29 @@ Below are the sample usages for each financial service model:
 
 ### One-Time Payment
 ```python
-faas.one_time_payment(amount=100.00, currency='USD', customer_id='cust123')
+faas.one_time_payment(amount=100.00, currency="USD", customer_id="cust123")
 ```
 
 ### Wallet-Based Transactions
 ```python
-faas.load_wallet(user_id='user456', amount=150.00)
-faas.wallet_transaction(user_id='user456', transaction_amount=20.00)
+faas.load_wallet(user_id="user456", amount=150.00)
+faas.wallet_transaction(user_id="user456", transaction_amount=20.00)
 ```
 
 ### Subscription
 ```python
-faas.create_subscription(plan_id='plan789', customer_id='cust123')
+faas.create_subscription(plan_id="plan789", customer_id="cust123")
 ```
 
 ### Metered Service with Expiry
 ```python
-faas.record_usage(user_id='user456', service_id='serv987', usage_amount=5)
-faas.set_expiration(user_id='user456', service_id='serv987', expire_after='30 days')
+faas.record_usage(user_id="user456", service_id="serv987", usage_amount=5)
+faas.set_expiration(user_id="user456", service_id="serv987", expire_after="30 days")
 ```
 
 ### Pay As You Go
 ```python
-faas.pay_as_you_go(user_id='user456', service_used='data', amount_used=10)
+faas.pay_as_you_go(user_id="user456", service_used="data", amount_used=10)
 ```
 
 ## Support
