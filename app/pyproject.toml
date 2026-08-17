@@ -1,12 +1,13 @@
 [project]
 name = "basket"
-version = "0.1.0"
+version = "0.1.1"
 description = "Basket application for managing user baskets"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "beanie>=2.1.0",
-    "fastapi-mongo-base>=1.5.7",
+    "fastapi-mongo-base[sentry]>=1.8.10",
+    "ipython>=9.16.1",
     "httpx>=0.28.1",
     "python-dotenv>=1.2.2",
     "ufaas>=0.5.5",
@@ -17,7 +18,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     # "beanie<2",
-    "ipython>=9.15.0",
+    "ipython>=9.16.1",
     "mongomock-motor>=0.0.36",
     "mypy>=2.2.0",
     "pytest>=9.1.1",
