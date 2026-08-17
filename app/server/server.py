@@ -1,5 +1,8 @@
 """FastAPI application factory."""
 
+import tomllib
+from pathlib import Path
+
 from fastapi import APIRouter
 from fastapi_mongo_base.core import app_factory
 from ufaas.fastapi import EXCEPTION_HANDLERS
@@ -12,11 +15,16 @@ from apps.voucher.routes import router as voucher_router
 
 from . import config
 
+_PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
+with _PYPROJECT.open("rb") as _pyproject:
+    _APP_VERSION = tomllib.load(_pyproject)["project"]["version"]
+
 exception_handlers = {}
 exception_handlers.update(EXCEPTION_HANDLERS)
 
 app = app_factory.create_app(
     settings=config.Settings(),
+    version=_APP_VERSION,
     exception_handlers=exception_handlers,
 )
 server_router = APIRouter()
